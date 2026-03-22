@@ -64,7 +64,9 @@ export default function AddDepartmentPersonPage() {
         fetch('/api/departments')
             .then(async (res) => {
                 if (!res.ok) {
-                    const data = await resJsonSafe<{ message?: string }>(res).catch(() => ({}));
+                    const data = await resJsonSafe<{ message?: string }>(res).catch(
+                        () => ({}) as { message?: string }
+                    );
                     throw new Error(data.message || 'Failed to fetch departments');
                 }
                 const data = await resJsonSafe<{ departments?: DepartmentData[] }>(res);

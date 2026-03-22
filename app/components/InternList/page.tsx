@@ -1,13 +1,14 @@
 'use client';
 import { InternData, STATUS_COLORS, UserRole } from '@/lib/constants';
 
+/** All optional so `/components/InternList` (App Router page) can prerender when opened as a route. */
 interface Props {
-    interns: InternData[];
-    loading: boolean;
+    interns?: InternData[];
+    loading?: boolean;
     error?: string;
-    userRole: UserRole;
-    onEdit: (intern: InternData) => void;
-    onDelete: (id: string, name: string) => void;
+    userRole?: UserRole;
+    onEdit?: (intern: InternData) => void;
+    onDelete?: (id: string, name: string) => void;
 }
 
 function StatusBadge({ status }: { status: InternData['status'] }) {
@@ -18,7 +19,14 @@ function StatusBadge({ status }: { status: InternData['status'] }) {
     );
 }
 
-export default function InternTable({ interns, loading, error, userRole, onEdit, onDelete }: Props) {
+export default function InternTable({
+    interns = [],
+    loading = false,
+    error,
+    userRole = 'intern',
+    onEdit = () => {},
+    onDelete = () => {},
+}: Props) {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20 text-slate-400">
