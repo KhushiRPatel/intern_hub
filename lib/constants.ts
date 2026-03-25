@@ -12,6 +12,8 @@ export interface InternData {
     email: string;
     phone?: string;
     college: string;
+    degree: string;
+    branch: string;
     department_id: string;
     department?: { id: string; name: string };
     start_date: string;

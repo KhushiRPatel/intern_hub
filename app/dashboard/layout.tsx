@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import Sidebar from '@/app/components/Sidebar';
 import Navbar from '@/app/components/Navbar';
+import { NavigationProvider } from '@/app/context/NavigationContext';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, isLoading } = useAuth();
@@ -24,12 +25,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!user) return null;
 
     return (
-        <div className="flex h-screen bg-slate-100 overflow-hidden">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <Navbar />
-                <main className="flex-1 overflow-auto p-6">{children}</main>
+        <NavigationProvider>
+            <div className="flex h-screen bg-slate-100 overflow-hidden">
+                <Sidebar />
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                    <Navbar />
+                    <main className="flex-1 overflow-auto p-6">{children}</main>
+                </div>
             </div>
-        </div>
+        </NavigationProvider>
     );
 }

@@ -3,6 +3,7 @@ import { InternData, STATUS_COLORS, UserRole } from '@/lib/constants';
 
 interface Props {
     interns: InternData[];
+    departments: { id: string; name: string }[];
     loading: boolean;
     error?: string;
     userRole: UserRole;
@@ -18,7 +19,7 @@ function StatusBadge({ status }: { status: InternData['status'] }) {
     );
 }
 
-export default function InternTable({ interns, loading, error, userRole, onEdit, onDelete }: Props) {
+export default function InternTable({ interns, departments, loading, error, userRole, onEdit, onDelete }: Props) {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20 text-slate-400">
@@ -77,7 +78,7 @@ export default function InternTable({ interns, loading, error, userRole, onEdit,
                             <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{intern.college}</td>
                             <td className="px-4 py-3">
                                 <span className="inline-block bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                    {intern.department?.name ?? '—'}
+                                    {departments.find(d => d.id === intern.department_id)?.name ?? '—'}
                                 </span>
                             </td>
                             <td className="px-4 py-3 text-slate-600 whitespace-nowrap">

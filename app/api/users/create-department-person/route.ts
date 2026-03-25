@@ -29,11 +29,13 @@ export async function POST(req: NextRequest) {
         const body = (await req.json()) as {
             name: string;
             email: string;
+            phone?: string;
             department_id: string;
         };
 
         const name = body?.name?.trim();
         const email = body?.email?.trim().toLowerCase();
+        const phone = body?.phone?.trim() || null;
         const department_id = body?.department_id;
 
         if (!name || !email || !department_id) {
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
         // 1) Check if user already exists
         type UserCheck = { users: { id: string }[] };
         const existing = await hasura<UserCheck>(
-            `query CheckEmail($email: String!) {
+            `query CheckEmail($email: citext!) {
               users(where: { email: { _eq: $email } }, limit: 1) { id }
             }`,
             { email }
@@ -63,7 +65,6 @@ export async function POST(req: NextRequest) {
                 name: string;
                 email: string;
                 role: string;
-                department: { id: string; name: string } | null;
             };
         };
 
@@ -71,13 +72,13 @@ export async function POST(req: NextRequest) {
             `mutation CreateDepartmentPerson($obj: users_insert_input!) {
               insert_users_one(object: $obj) {
                 id name email role
-                department { id name }
               }
             }`,
             {
                 obj: {
                     name,
                     email,
+                    phone,
                     password_hash: passwordHash,
                     role: 'department_person',
                     department_id,

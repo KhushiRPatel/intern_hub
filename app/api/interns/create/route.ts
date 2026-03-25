@@ -26,25 +26,27 @@ function generateTempPassword(): string {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { name, email, phone, college, department_id, start_date, end_date, status } = body as {
+        const { name, email, phone, college, degree, branch, department_id, start_date, end_date, status } = body as {
             name: string;
             email: string;
             phone?: string | null;
             college: string;
+            degree: string;
+            branch: string;
             department_id: string;
             start_date: string;
             end_date?: string | null;
             status?: string;
         };
 
-        if (!name || !email || !college || !department_id || !start_date) {
+        if (!name || !email || !college || !degree || !branch || !department_id || !start_date) {
             return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
         }
 
         // 1) Check if user already exists
         type UserCheck = { users: { id: string }[] };
         const existing = await hasura<UserCheck>(
-            `query CheckEmail($email: String!) {
+            `query CheckEmail($email: citext!) {
                 users(where: { email: { _eq: $email } }, limit: 1) { id }
             }`,
             { email: email.trim().toLowerCase() }
@@ -86,7 +88,6 @@ export async function POST(req: NextRequest) {
                 name: string;
                 email: string;
                 status: string;
-                department: { id: string; name: string } | null;
             };
         };
 
@@ -94,7 +95,6 @@ export async function POST(req: NextRequest) {
             `mutation CreateIntern($obj: interns_insert_input!) {
                 insert_interns_one(object: $obj) {
                     id name email status
-                    department { id name }
                 }
             }`,
             {
@@ -103,6 +103,8 @@ export async function POST(req: NextRequest) {
                     email: email.trim().toLowerCase(),
                     phone: phone || null,
                     college: college.trim(),
+                    degree: degree.trim(),
+                    branch: branch.trim(),
                     department_id,
                     start_date,
                     end_date: end_date || null,

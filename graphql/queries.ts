@@ -18,15 +18,14 @@ export const GET_INTERNS = gql`
       email
       phone
       college
+      degree
+      branch
       status
       start_date
       end_date
       user_id
       created_at
-      department {
-        id
-        name
-      }
+      department_id
     }
     interns_aggregate(where: $where) {
       aggregate { count }
@@ -42,15 +41,14 @@ export const GET_INTERN_BY_ID = gql`
       email
       phone
       college
+      degree
+      branch
       status
       start_date
       end_date
       user_id
       created_at
-      department {
-        id
-        name
-      }
+      department_id
     }
   }
 `;
@@ -79,5 +77,27 @@ export const GET_DASHBOARD_STATS = gql`
     completed:  interns_aggregate(where: { status: { _eq: "completed"  } }) { aggregate { count } }
     terminated: interns_aggregate(where: { status: { _eq: "terminated" } }) { aggregate { count } }
     dept_count: departments_aggregate                                     { aggregate { count } }
+  }
+`;
+
+export const GET_DEPARTMENT_PERSONS = gql`
+  query GetDepartmentPersons(
+    $where:    users_bool_exp!
+    $order_by: [users_order_by!]
+  ) {
+    users(
+      where: { _and: [{ role: { _eq: "department_person" } }, $where] }
+      order_by: $order_by
+    ) {
+      id
+      name
+      email
+      phone
+      department_id
+      created_at
+    }
+    users_aggregate(where: { _and: [{ role: { _eq: "department_person" } }, $where] }) {
+      aggregate { count }
+    }
   }
 `;

@@ -1,13 +1,13 @@
 'use client';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
+import { useNavigation, type PageView } from '@/app/context/NavigationContext';
 import { ROLE_COLORS, ROLE_LABELS } from '@/lib/constants';
 
 const NAV = [
     {
         label: 'Dashboard',
-        href: '/dashboard',
+        view: 'dashboard' as PageView,
         roles: ['admin', 'department_person', 'intern'],
         icon: (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -18,7 +18,7 @@ const NAV = [
     },
     {
         label: 'Interns',
-        href: '/interns',
+        view: 'interns' as PageView,
         roles: ['admin', 'department_person', 'intern'],
         icon: (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -29,7 +29,7 @@ const NAV = [
     },
     {
         label: 'Add Intern',
-        href: '/interns/add',
+        view: 'add-intern' as PageView,
         roles: ['admin'],
         icon: (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -39,8 +39,8 @@ const NAV = [
         ),
     },
     {
-        label: 'Add Dept. Person',
-        href: '/users/add-department-person',
+        label: 'Department Persons',
+        view: 'add-dept-person' as PageView,
         roles: ['admin'],
         icon: (
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -52,8 +52,8 @@ const NAV = [
 ];
 
 export default function Sidebar() {
-    const pathname = usePathname();
     const { user } = useAuth();
+    const { currentView, setCurrentView } = useNavigation();
 
     const visible = NAV.filter((n) => n.roles.includes(user?.role ?? ''));
 
@@ -73,21 +73,19 @@ export default function Sidebar() {
             {/* Navigation */}
             <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
                 {visible.map((item) => {
-                    const active =
-                        pathname === item.href ||
-                        (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                    const active = currentView === item.view;
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
+                        <button
+                            key={item.view}
+                            onClick={() => setCurrentView(item.view)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${active
                                 ? 'bg-blue-600 text-white'
                                 : 'text-slate-400 hover:bg-slate-700 hover:text-white'
                                 }`}
                         >
                             {item.icon}
                             {item.label}
-                        </Link>
+                        </button>
                     );
                 })}
             </nav>
