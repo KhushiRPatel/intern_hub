@@ -68,7 +68,9 @@ export default function DashboardPage() {
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
 
       {/* ── Welcome banner ── */}
-      <div className="relative overflow-hidden bg-slate-950 dark:bg-slate-900 rounded-2xl p-6 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl p-6 text-white shadow-lg
+        bg-primary-700 dark:bg-slate-900
+      ">
         <div className="absolute top-0 right-0 w-72 h-72 bg-primary-600/10 rounded-full -translate-y-1/3 translate-x-1/4 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-primary-900/20 rounded-full translate-y-1/2 blur-2xl pointer-events-none" />
 

@@ -1,23 +1,45 @@
 'use client';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { ThemeToggle } from './ui/ThemeToggle';
 import { Avatar } from './ui/Avatar';
 import { RoleBadge } from './ui/Badge';
 
+/* Map path prefixes → readable page names */
+const PAGE_NAMES: Record<string, string> = {
+  '/dashboard': 'Dashboard',
+  '/interns/add': 'Add Intern',
+  '/interns': 'Interns',
+  '/users/add-department-person': 'Add Dept. Person',
+};
+
+function getPageName(pathname: string) {
+  // Longest prefix match
+  const key = Object.keys(PAGE_NAMES)
+    .filter(k => pathname === k || pathname.startsWith(k + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+  return PAGE_NAMES[key] ?? 'Dashboard';
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
+  const pageName = getPageName(pathname);
 
   return (
-    <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
+    <header className="h-16 flex items-center justify-between px-6 shrink-0 z-10
+      bg-white dark:bg-slate-900
+      border-b border-slate-200 dark:border-slate-800
+    ">
 
       {/* Left: breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-slate-400 dark:text-slate-600 text-sm hidden sm:block">InternMS</span>
+        <span className="text-slate-400 dark:text-slate-500 text-sm hidden sm:block">InternMS</span>
         <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 hidden sm:block shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
         <span className="text-slate-700 dark:text-slate-300 font-semibold text-sm truncate">
-          Dashboard
+          {pageName}
         </span>
         {user?.department_name && (
           <span className="hidden md:inline text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded-lg font-medium ml-1">
@@ -34,7 +56,11 @@ export default function Navbar() {
 
         {/* Notification bell */}
         <button
-          className="relative w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+          className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors
+            text-slate-500 dark:text-slate-400
+            hover:bg-slate-100 dark:hover:bg-slate-800
+            hover:text-slate-700 dark:hover:text-slate-200
+          "
           title="Notifications"
         >
           <svg className="w-[1.1rem] h-[1.1rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -44,13 +70,13 @@ export default function Navbar() {
         </button>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-slate-100 dark:bg-slate-800 mx-2" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-2" />
 
         {/* User info */}
         <div className="flex items-center gap-2.5">
           {user && <Avatar name={user.name} size="sm" />}
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-none">
+            <p className="text-sm font-semibold leading-none text-slate-800 dark:text-slate-200">
               {user?.name}
             </p>
             <div className="mt-0.5">
@@ -60,12 +86,16 @@ export default function Navbar() {
         </div>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-slate-100 dark:bg-slate-800 mx-2" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 mx-2" />
 
         {/* Logout */}
         <button
           onClick={logout}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors
+            text-slate-500 dark:text-slate-400
+            hover:bg-red-50 dark:hover:bg-red-950/30
+            hover:text-red-600 dark:hover:text-red-400
+          "
           title="Logout"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
