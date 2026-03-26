@@ -58,7 +58,7 @@ async function fetchUserFromHasura(email: string) {
             },
             body: JSON.stringify({
                 query: `
-          query GetUser($email: String!) {
+          query GetUser($email: citext!) {
             users(where: { email: { _eq: $email } }, limit: 1) {
               id name email password_hash role department_id
               department { name }

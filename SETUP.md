@@ -15,7 +15,7 @@
 ---
 
 ## Step 1 — Install PostgreSQL & pgAdmin
-
+ 
 1. Download and install **PostgreSQL 15+** from https://www.postgresql.org/download/
 2. During installation, set a password for the `postgres` superuser (remember this).
 3. **pgAdmin 4** is bundled with the PostgreSQL installer. Open it after installation.

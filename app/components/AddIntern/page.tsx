@@ -1,9 +1,9 @@
 'use client';
 import { useState, FormEvent, useEffect } from 'react';
-import {
-  INTERN_STATUSES,
-  InternData, DepartmentData,
-} from '@/lib/constants';
+import { INTERN_STATUSES, InternData, DepartmentData } from '@/lib/constants';
+import { Button } from '@/app/components/ui/Button';
+import { Input, Select } from '@/app/components/ui/Input';
+import { Modal } from '@/app/components/ui/Modal';
 
 export interface InternFormValues {
   name: string;
@@ -23,11 +23,10 @@ interface Props {
   initialData?: InternData | null;
   departments: DepartmentData[];
   submitting: boolean;
-  /** When true, renders inline (no overlay/backdrop) */
   isInline?: boolean;
 }
 
-const empty: InternFormValues = {
+const EMPTY: InternFormValues = {
   name: '', email: '', phone: '', college: '',
   department_id: '', start_date: '', end_date: '', status: 'active',
 };
@@ -35,45 +34,39 @@ const empty: InternFormValues = {
 export default function InternFormModal({
   isOpen, onClose, onSubmit, initialData, departments, submitting, isInline = false,
 }: Props) {
-  const [form, setForm] = useState<InternFormValues>(empty);
+  const [form, setForm] = useState<InternFormValues>(EMPTY);
   const [errors, setErrors] = useState<Partial<InternFormValues>>({});
 
-  // IMPORTANT: In real mode (`departments` are Hasura UUIDs), we must NOT fall back
-  // to demo department IDs like `dept-dotnet-001`, otherwise Hasura rejects the
-  // value for `uuid` typed columns.
-  const depts = departments;
-
-  // Pre-fill when editing
   useEffect(() => {
     if (initialData) {
       setForm({
-        name: initialData.name,
-        email: initialData.email,
-        phone: initialData.phone ?? '',
-        college: initialData.college,
+        name:          initialData.name,
+        email:         initialData.email,
+        phone:         initialData.phone ?? '',
+        college:       initialData.college,
         department_id: initialData.department_id,
-        start_date: initialData.start_date,
-        end_date: initialData.end_date ?? '',
-        status: initialData.status,
+        start_date:    initialData.start_date,
+        end_date:      initialData.end_date ?? '',
+        status:        initialData.status,
       });
     } else {
-      setForm(empty);
+      setForm(EMPTY);
     }
     setErrors({});
   }, [initialData, isOpen]);
 
   const set = (field: keyof InternFormValues) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((p) => ({ ...p, [field]: e.target.value }));
+      setForm(p => ({ ...p, [field]: e.target.value }));
 
   const validate = (): boolean => {
     const e: Partial<InternFormValues> = {};
-    if (!form.name.trim()) e.name = 'Name is required';
-    if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email';
-    if (!form.college.trim()) e.college = 'College is required';
-    if (!form.department_id) e.department_id = 'Department is required';
-    if (!form.start_date) e.start_date = 'Start date is required';
+    if (!form.name.trim())          e.name          = 'Name is required';
+    if (!form.email.trim())         e.email         = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email address';
+    if (!form.college.trim())       e.college       = 'College is required';
+    if (!form.department_id)        e.department_id = 'Department is required';
+    if (!form.start_date)           e.start_date    = 'Start date is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -84,124 +77,120 @@ export default function InternFormModal({
     await onSubmit(form);
   };
 
-  if (!isOpen) return null;
-
-  // The actual form body (shared between modal and inline mode)
   const formBody = (
     <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
       {/* Name + Email */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Full Name *" error={errors.name}>
-          <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. Alice Johnson"
-            className={input(!!errors.name)} />
-        </Field>
-        <Field label="Email *" error={errors.email}>
-          <input type="email" value={form.email} onChange={set('email')} placeholder="alice@example.com"
-            className={input(!!errors.email)} />
-        </Field>
+        <Input
+          label="Full Name *"
+          type="text"
+          value={form.name}
+          onChange={set('name')}
+          placeholder="Alice Johnson"
+          error={errors.name}
+        />
+        <Input
+          label="Email *"
+          type="email"
+          value={form.email}
+          onChange={set('email')}
+          placeholder="alice@example.com"
+          error={errors.email}
+        />
       </div>
 
       {/* Phone + College */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Phone">
-          <input type="tel" value={form.phone} onChange={set('phone')} placeholder="+91 9876543210"
-            className={input(false)} />
-        </Field>
-        <Field label="College *" error={errors.college}>
-          <input type="text" value={form.college} onChange={set('college')} placeholder="IIT Mumbai"
-            className={input(!!errors.college)} />
-        </Field>
+        <Input
+          label="Phone"
+          type="tel"
+          value={form.phone}
+          onChange={set('phone')}
+          placeholder="+91 9876543210"
+        />
+        <Input
+          label="College *"
+          type="text"
+          value={form.college}
+          onChange={set('college')}
+          placeholder="IIT Mumbai"
+          error={errors.college}
+        />
       </div>
 
       {/* Department + Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Department *" error={errors.department_id}>
-          <select value={form.department_id} onChange={set('department_id')} className={input(!!errors.department_id)}>
-            <option value="">Select department</option>
-            {depts.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Status">
-          <select value={form.status} onChange={set('status')} className={input(false)}>
-            {INTERN_STATUSES.map((s) => (
-              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-            ))}
-          </select>
-        </Field>
+        <Select
+          label="Department *"
+          value={form.department_id}
+          onChange={set('department_id')}
+          error={errors.department_id}
+        >
+          <option value="">Select department</option>
+          {(departments ?? []).map(d => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </Select>
+        <Select
+          label="Status"
+          value={form.status}
+          onChange={set('status')}
+        >
+          {INTERN_STATUSES.map(s => (
+            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+          ))}
+        </Select>
       </div>
 
       {/* Start + End date */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Field label="Start Date *" error={errors.start_date}>
-          <input type="date" value={form.start_date} onChange={set('start_date')}
-            className={input(!!errors.start_date)} />
-        </Field>
-        <Field label="End Date">
-          <input type="date" value={form.end_date} onChange={set('end_date')}
-            min={form.start_date} className={input(false)} />
-        </Field>
+        <Input
+          label="Start Date *"
+          type="date"
+          value={form.start_date}
+          onChange={set('start_date')}
+          error={errors.start_date}
+        />
+        <Input
+          label="End Date"
+          type="date"
+          value={form.end_date}
+          onChange={set('end_date')}
+          min={form.start_date}
+        />
       </div>
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={onClose}
-          className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="flex-1"
+        >
           Cancel
-        </button>
-        <button type="submit" disabled={submitting}
-          className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2">
-          {submitting ? (
-            <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Saving…</>
-          ) : (
-            initialData ? 'Save Changes' : 'Add Intern'
-          )}
-        </button>
+        </Button>
+        <Button
+          type="submit"
+          loading={submitting}
+          className="flex-1"
+        >
+          {submitting ? 'Saving…' : initialData ? 'Save Changes' : 'Add Intern'}
+        </Button>
       </div>
     </form>
   );
 
-  // Inline mode — no overlay, just the form
-  if (isInline) return formBody;
+  if (isInline) return isOpen ? formBody : null;
 
-  // Modal mode — with backdrop + panel
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Modal header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
-          <h2 className="text-lg font-bold text-slate-800">
-            {initialData ? 'Edit Intern' : 'Add New Intern'}
-          </h2>
-          <button onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {formBody}
-      </div>
-    </div>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={initialData ? 'Edit Intern' : 'Add New Intern'}
+      size="md"
+    >
+      {formBody}
+    </Modal>
   );
 }
-
-// ── helpers ────────────────────────────────────────────────────────────────────
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
-      {children}
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-const input = (hasError: boolean) =>
-  `w-full px-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-colors ${hasError
-    ? 'border-red-400 focus:ring-red-300 bg-red-50'
-    : 'border-slate-300 focus:ring-blue-400 focus:border-transparent'
-  } text-slate-800`;
-
