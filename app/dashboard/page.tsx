@@ -4,6 +4,7 @@ import { DashboardView } from './DashboardView';
 import { InternsView } from './InternsView';
 import { AddInternView } from './AddInternView';
 import { AddDeptPersonView } from './AddDeptPersonView';
+import { TaskDashboard } from './TaskDashboard';
 
 export default function DashboardPage() {
     const { currentView } = useNavigation();
@@ -14,6 +15,7 @@ export default function DashboardPage() {
             {currentView === 'interns' && <InternsView />}
             {currentView === 'add-intern' && <AddInternView />}
             {currentView === 'add-dept-person' && <AddDeptPersonView />}
+            {currentView === 'tasks' && <TaskDashboard />}
         </>
-    );
+    ); 
 }

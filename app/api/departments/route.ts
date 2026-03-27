@@ -25,7 +25,7 @@ export async function GET(_req: NextRequest) {
             }`,
             {}
         );
-        return NextResponse.json({ departments: data.departments });
+        return NextResponse.json(data.departments);
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch departments';
         return NextResponse.json({ message }, { status: 500 });

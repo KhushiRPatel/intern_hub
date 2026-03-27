@@ -14,10 +14,10 @@ services:
       POSTGRES_USER: chatbot
       POSTGRES_PASSWORD: chatbot123
     volumes:
-      - postgres_data:/var/lib/postgresql/data   # Persist data between restarts
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Auto-run schema on first start
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chatbot -d intern_management"]
+      test: [ "CMD-SHELL", "pg_isready -U chatbot -d intern_management" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,14 +31,18 @@ services:
     restart: always
     depends_on:
       postgres:
-        condition: service_healthy   # Wait for PostgreSQL to be ready
+        condition: service_healthy
+    volumes:
+      - ./hasura/metadata:/hasura-metadata        # ← ADD THIS
     environment:
       HASURA_GRAPHQL_DATABASE_URL: "postgres://chatbot:chatbot123@postgres:5432/intern_management"
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://chatbot:chatbot123@postgres:5432/intern_management"
       HASURA_GRAPHQL_ADMIN_SECRET: "myadminsecret"
       HASURA_GRAPHQL_JWT_SECRET: '{"type":"HS256","key":"change-me-to-a-long-random-string-min-32-chars"}'
       HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
       HASURA_GRAPHQL_DEV_MODE: "true"
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: "startup, http-log, webhook-log, websocket-log, query-log"
+      HASURA_GRAPHQL_METADATA_DIR: "/hasura-metadata"   
 
 volumes:
-  postgres_data:   # Named volume — data survives docker compose down
+  postgres_data:

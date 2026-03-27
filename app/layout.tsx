@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ApolloClientProvider from './providers/ApolloProvider';
 import { AuthProvider } from './context/AuthContext';
+import { TaskProvider } from './context/TaskContext';
 
 export const metadata: Metadata = {
   title: 'Intern Management System',
@@ -14,7 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased">
         <ApolloClientProvider>
           <AuthProvider>
-            {children}
+            <TaskProvider>
+              {children}
+            </TaskProvider>
           </AuthProvider>
         </ApolloClientProvider>
       </body>
