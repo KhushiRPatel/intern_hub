@@ -10,6 +10,8 @@ export interface InternFormValues {
   email: string;
   phone: string;
   college: string;
+  degree: string;
+  branch: string;
   department_id: string;
   start_date: string;
   end_date: string;
@@ -28,6 +30,7 @@ interface Props {
 
 const EMPTY: InternFormValues = {
   name: '', email: '', phone: '', college: '',
+  degree: '', branch: '',
   department_id: '', start_date: '', end_date: '', status: 'active',
 };
 
@@ -35,7 +38,7 @@ export default function InternFormModal({
   isOpen, onClose, onSubmit, initialData, departments, submitting, isInline = false,
 }: Props) {
   const [form, setForm] = useState<InternFormValues>(EMPTY);
-  const [errors, setErrors] = useState<Partial<InternFormValues>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof InternFormValues, string>>>({});
 
   useEffect(() => {
     if (initialData) {
@@ -44,6 +47,8 @@ export default function InternFormModal({
         email:         initialData.email,
         phone:         initialData.phone ?? '',
         college:       initialData.college,
+        degree:        (initialData as InternData & { degree?: string }).degree ?? '',
+        branch:        (initialData as InternData & { branch?: string }).branch ?? '',
         department_id: initialData.department_id,
         start_date:    initialData.start_date,
         end_date:      initialData.end_date ?? '',
@@ -60,11 +65,13 @@ export default function InternFormModal({
       setForm(p => ({ ...p, [field]: e.target.value }));
 
   const validate = (): boolean => {
-    const e: Partial<InternFormValues> = {};
+    const e: Partial<Record<keyof InternFormValues, string>> = {};
     if (!form.name.trim())          e.name          = 'Name is required';
     if (!form.email.trim())         e.email         = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email address';
     if (!form.college.trim())       e.college       = 'College is required';
+    if (!form.degree.trim())        e.degree        = 'Degree is required (e.g. B.Tech, MCA)';
+    if (!form.branch.trim())        e.branch        = 'Branch is required (e.g. Computer Science)';
     if (!form.department_id)        e.department_id = 'Department is required';
     if (!form.start_date)           e.start_date    = 'Start date is required';
     setErrors(e);
@@ -79,7 +86,8 @@ export default function InternFormModal({
 
   const formBody = (
     <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-      {/* Name + Email */}
+
+      {/* Row 1 — Name + Email */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Full Name *"
@@ -96,10 +104,11 @@ export default function InternFormModal({
           onChange={set('email')}
           placeholder="alice@example.com"
           error={errors.email}
+          disabled={!!initialData}
         />
       </div>
 
-      {/* Phone + College */}
+      {/* Row 2 — Phone + College */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Phone"
@@ -118,7 +127,27 @@ export default function InternFormModal({
         />
       </div>
 
-      {/* Department + Status */}
+      {/* Row 3 — Degree + Branch */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input
+          label="Degree *"
+          type="text"
+          value={form.degree}
+          onChange={set('degree')}
+          placeholder="B.Tech / MCA / MBA"
+          error={errors.degree}
+        />
+        <Input
+          label="Branch *"
+          type="text"
+          value={form.branch}
+          onChange={set('branch')}
+          placeholder="Computer Science"
+          error={errors.branch}
+        />
+      </div>
+
+      {/* Row 4 — Department + Status */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Department *"
@@ -142,7 +171,7 @@ export default function InternFormModal({
         </Select>
       </div>
 
-      {/* Start + End date */}
+      {/* Row 5 — Start + End date */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label="Start Date *"

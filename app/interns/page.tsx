@@ -5,7 +5,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { DEPARTMENTS, INTERN_STATUSES, InternData, DEMO_DEPARTMENTS } from '@/lib/constants';
 import { demoStore } from '@/lib/demoStore';
 import { GET_INTERNS, GET_DEPARTMENTS, GET_COLLEGES } from '@/graphql/queries';
-import { INSERT_INTERN, UPDATE_INTERN, DELETE_INTERN } from '@/graphql/mutations';
+import { UPDATE_INTERN, DELETE_INTERN } from '@/graphql/mutations';
 import InternTable from '@/app/components/InternList/page';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
 import { Button } from '@/app/components/ui/Button';
@@ -202,7 +202,6 @@ export default function InternsPage() {
   const { data: deptData }    = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
   const { data: collegeData } = useQuery(GET_COLLEGES,    { skip: IS_DEMO });
 
-  const [insertMutation] = useMutation(INSERT_INTERN, { onCompleted: () => refetch() });
   const [updateMutation] = useMutation(UPDATE_INTERN, { onCompleted: () => refetch() });
   const [deleteMutation] = useMutation(DELETE_INTERN, { onCompleted: () => refetch() });
 
@@ -225,30 +224,60 @@ export default function InternsPage() {
   const handleFormSubmit = async (values: InternFormValues) => {
     setFormBusy(true);
     try {
-      const payload = {
+      const basePayload = {
         name: values.name.trim(), email: values.email.trim().toLowerCase(),
         phone: values.phone || undefined, college: values.college.trim(),
+        degree: values.degree.trim(), branch: values.branch.trim(),
         department_id: values.department_id, start_date: values.start_date,
         end_date: values.end_date || undefined, status: values.status,
       };
+
       if (IS_DEMO) {
         if (editTarget) {
-          demoStore.update(editTarget.id, payload);
+          demoStore.update(editTarget.id, basePayload);
           showToast(`${values.name} updated`);
         } else {
-          demoStore.create(payload);
-          showToast(`${values.name} added`);
-          // Send real welcome email even in demo mode
-          fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: payload.name, email: payload.email }),
-          }).catch(() => {/* silent — don't block UI */});
+          demoStore.create(basePayload);
+          showToast(`${values.name} added — demo mode`);
         }
         setDemoRefresh(n => n + 1);
       } else {
-        if (editTarget) { await updateMutation({ variables: { id: editTarget.id, set: payload } }); showToast(`${values.name} updated`); }
-        else            { await insertMutation({ variables: { object: payload } });                  showToast(`${values.name} added`); }
+        if (editTarget) {
+          // Edit: use GraphQL mutation (no password/email change needed)
+          await updateMutation({
+            variables: {
+              id: editTarget.id,
+              set: {
+                name: basePayload.name, phone: basePayload.phone ?? null,
+                college: basePayload.college, degree: basePayload.degree,
+                branch: basePayload.branch, department_id: basePayload.department_id,
+                start_date: basePayload.start_date, end_date: basePayload.end_date ?? null,
+                status: basePayload.status,
+              },
+            },
+          });
+          showToast(`${values.name} updated`);
+        } else {
+          // Add new intern: use REST API so user account is created + email is sent
+          const res = await fetch('/api/interns/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: basePayload.name, email: basePayload.email,
+              phone: basePayload.phone ?? null, college: basePayload.college,
+              degree: basePayload.degree, branch: basePayload.branch,
+              department_id: basePayload.department_id,
+              start_date: basePayload.start_date,
+              end_date: basePayload.end_date ?? null,
+              status: basePayload.status,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Failed to add intern');
+          const emailMsg = data.emailSent ? ' · Setup email sent' : ' · Email not configured';
+          showToast(`${values.name} added${emailMsg}`);
+          refetch();
+        }
       }
       setShowForm(false); setEditTarget(null);
     } catch (err) {

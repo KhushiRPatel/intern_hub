@@ -67,6 +67,8 @@ export function AddInternView() {
                         email: values.email.trim().toLowerCase(),
                         phone: values.phone || null,
                         college: values.college.trim(),
+                        degree: values.degree.trim(),
+                        branch: values.branch.trim(),
                         department_id: values.department_id,
                         start_date: values.start_date,
                         end_date: values.end_date || null,
