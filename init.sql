@@ -158,5 +158,3 @@ CREATE INDEX IF NOT EXISTS idx_interns_department ON interns(department_id);
 CREATE INDEX IF NOT EXISTS idx_interns_status     ON interns(status);
 CREATE INDEX IF NOT EXISTS idx_interns_mentor     ON interns(mentor_id);
 CREATE INDEX IF NOT EXISTS idx_interns_email      ON interns(email);
-CREATE INDEX IF NOT EXISTS idx_attendance_intern  ON attendance(intern_id, date);
-CREATE INDEX IF NOT EXISTS idx_reviews_intern     ON performance_reviews(intern_id);
