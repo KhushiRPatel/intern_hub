@@ -1,49 +1,30 @@
-# 🚀 InternHub — How to Run the Project
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16 + TypeScript + TailwindCSS |
-| GraphQL Client | Apollo Client |
-| GraphQL Engine | Hasura v2.36 (Docker) |
-| Database | PostgreSQL 15 (Docker) |
-| Auth | JWT (jsonwebtoken + bcryptjs) |
-
----
+# 🚀 InternHub — How to Run
 
 ## Prerequisites
-
-You only need **two things** installed:
 
 | Tool | Download |
 |------|----------|
 | **Node.js 18+** | https://nodejs.org |
 | **Docker Desktop** | https://www.docker.com/products/docker-desktop |
 
-> ✅ No need to install PostgreSQL separately — it runs inside Docker!
+> ✅ No need to install PostgreSQL separately — it runs inside Docker.
 
 ---
 
-## ⚡ Option A — Demo Mode (Fastest, No Docker Needed)
+## ⚡ Option A — Demo Mode (No Docker Needed)
 
-Run the app instantly with built-in mock data. No database or Docker required.
+Run instantly with built-in mock data. No database required.
 
 ```bash
-# 1. Clone & install
 git clone https://github.com/KhushiRPatel/intern_hub.git
 cd intern_hub
 npm install
-
-# 2. Set up environment
 cp .env.example .env.local
-# Make sure NEXT_PUBLIC_DEMO_MODE=true in .env.local
-
-# 3. Start
+# Ensure NEXT_PUBLIC_DEMO_MODE=true in .env.local
 npm run dev
 ```
 
-Open **http://localhost:3000** and log in with:
+Log in at **http://localhost:3000**:
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -54,7 +35,7 @@ Open **http://localhost:3000** and log in with:
 
 ---
 
-## 🏗️ Option B — Full Setup with Docker (Real Database)
+## 🏗️ Option B — Full Setup with Docker
 
 ### Step 1 — Clone & Install
 
@@ -70,7 +51,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and set:
+Edit `.env.local`:
 
 ```env
 NEXT_PUBLIC_HASURA_ENDPOINT=http://localhost:8080/v1/graphql
@@ -79,7 +60,9 @@ JWT_SECRET=change-me-to-a-long-random-string-min-32-chars
 NEXT_PUBLIC_DEMO_MODE=false
 ```
 
-### Step 3 — Start the Full Stack with Docker
+> The `HASURA_ADMIN_SECRET` and `JWT_SECRET` must match the values in `docker-compose.yml`.
+
+### Step 3 — Start Docker
 
 Make sure **Docker Desktop is running**, then:
 
@@ -87,41 +70,41 @@ Make sure **Docker Desktop is running**, then:
 docker compose up -d
 ```
 
-This single command:
-- ✅ Starts **PostgreSQL 15** on port `5432`
-- ✅ Automatically runs `init.sql` — creates all 7 tables + seeds data
-- ✅ Starts **Hasura GraphQL Engine** on port `8080`
-- ✅ Hasura waits for PostgreSQL to be ready before connecting
+This starts:
+- ✅ **PostgreSQL 15** on port `5432` — auto-runs `init.sql` on first start (creates all tables + seeds departments + admin user)
+- ✅ **Hasura GraphQL Engine** on port `8080` — auto-loads permissions from `hasura/metadata/metadata.json`
 
-> **First time only:** Docker pulls the images (~500 MB). Takes 2–3 minutes on first run, then instant every time after.
-
-Verify everything is running:
+Verify:
 ```bash
 docker ps
+# Should show internhub_postgres and internhub_hasura both Up
 ```
-You should see both `internhub_postgres` and `internhub_hasura` with status `Up`.
 
 ### Step 4 — Track Tables in Hasura Console
 
 1. Open **http://localhost:8080**
-2. Enter admin secret: **`myadminsecret`**
+2. Enter admin secret: `myadminsecret`
 3. Go to **Data** tab → click **`public`** schema
 4. Click **Track All** under *Untracked Tables*
 5. Click **Track All** under *Untracked foreign-key relationships*
 
-> ⚡ You only need to do this **once** after first setup.
+> ✅ Only needed **once** on first setup. Permissions are already applied via metadata.
 
-### Step 5 — Run the Next.js App
+### Step 5 — Apply Hasura Permissions (First Time Only)
+
+```bash
+node apply-permissions.mjs
+```
+
+This sets row-level permissions for all roles on all tables. Run once after first `docker compose up`. All `already exists` messages are fine.
+
+### Step 6 — Start the App
 
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:3000** and log in:
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@company.com` | `admin123` |
+Open **http://localhost:3000** and log in with `admin@company.com` / `admin123`.
 
 ---
 
@@ -136,19 +119,6 @@ Open **http://localhost:3000** and log in:
 
 ---
 
-## 🔑 Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_HASURA_ENDPOINT` | Hasura GraphQL endpoint URL |
-| `HASURA_ADMIN_SECRET` | Secret to access Hasura (must match `docker-compose.yml`) |
-| `JWT_SECRET` | Secret for signing JWTs (min 32 chars, must match `docker-compose.yml`) |
-| `NEXT_PUBLIC_DEMO_MODE` | `true` = mock data, `false` = real PostgreSQL |
-
-> ⚠️ Never commit `.env.local` — it is already in `.gitignore`.
-
----
-
 ## 🛠️ Useful Commands
 
 | Command | Description |
@@ -156,78 +126,65 @@ Open **http://localhost:3000** and log in:
 | `docker compose up -d` | Start PostgreSQL + Hasura in background |
 | `docker compose down` | Stop all containers |
 | `docker compose down -v` | Stop and **delete all data** (fresh start) |
-| `docker compose restart` | Restart containers |
-| `docker logs internhub_hasura --tail 50` | View Hasura logs |
-| `docker logs internhub_postgres --tail 50` | View PostgreSQL logs |
+| `docker compose logs -f hasura` | Stream Hasura logs |
 | `docker ps` | List running containers |
+| `node apply-permissions.mjs` | Re-apply all Hasura permissions |
+| `node export-metadata.mjs` | Export current Hasura metadata to file |
 | `npm run dev` | Start Next.js dev server |
 | `npm run build` | Build for production |
 
 ---
 
-## 📁 Project Structure
-
-```
-intern_hub/
-├── app/
-│   ├── api/
-│   │   ├── auth/login/route.ts     ← JWT login API
-│   │   ├── departments/route.ts
-│   │   ├── interns/route.ts
-│   │   └── users/
-│   ├── components/
-│   │   ├── Navbar.tsx
-│   │   ├── Sidebar.tsx
-│   │   ├── InternList/page.tsx     ← Intern table + filters
-│   │   └── AddIntern/page.tsx      ← Add intern form
-│   ├── context/AuthContext.tsx     ← Auth state (login/logout)
-│   ├── dashboard/page.tsx          ← Stats overview
-│   └── interns/page.tsx            ← Intern list page
-├── graphql/
-│   ├── queries.ts                  ← GraphQL queries
-│   └── mutations.ts                ← GraphQL mutations
-├── lib/
-│   ├── apolloClient.ts             ← Apollo Client setup
-│   └── demoStore.ts                ← Demo mode data
-├── docker-compose.yml              ← PostgreSQL + Hasura config
-├── init.sql                        ← Auto-runs on first Docker start
-├── DATABASE_SCHEMA.md              ← Full schema documentation
-├── HOW_TO_RUN.md                   ← This file
-├── .env.example                    ← Copy this to .env.local
-└── package.json
-```
-
----
-
 ## 🐛 Troubleshooting
 
-### ❌ `docker compose up` fails — port already in use
+### ❌ Port already in use
 ```bash
-# Check what's using the port
+# Windows — find what's using the port
 netstat -ano | findstr :5432
 netstat -ano | findstr :8080
-# Stop the conflicting service or change ports in docker-compose.yml
 ```
+Stop the conflicting service or change ports in `docker-compose.yml`.
 
-### ❌ Hasura console shows `permission denied for table`
+### ❌ Tables not appearing in Hasura after Track All
+`init.sql` may not have run. Force a fresh start:
 ```bash
-# Connect to the running PostgreSQL container and fix permissions
-docker exec -it internhub_postgres psql -U chatbot -d intern_management -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO chatbot;"
-docker exec -it internhub_postgres psql -U chatbot -d intern_management -c "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO chatbot;"
+docker compose down -v   # deletes volume — all data will be lost
+docker compose up -d
 ```
 
-### ❌ Tables not appearing in Hasura after `Track All`
-The `init.sql` may not have run. Force a fresh start:
+### ❌ `field 'interns' not found in type: 'query_root'`
+Hasura permissions aren't applied. Run:
 ```bash
-docker compose down -v        # Deletes volume (all data)
-docker compose up -d          # Recreates everything fresh
+node apply-permissions.mjs
 ```
 
-### ❌ `next` is not recognized
+### ❌ `Unauthorized - no token` on API calls
+Your token may be stale. Log out and log back in — the new token will have correct Hasura claims.
+
+### ❌ Foreign key violation when creating tasks
+Log out and log back in. The login route upserts your user into the DB — this ensures the `assigned_by` FK always resolves.
+
+### ❌ `npm run dev` — `next` not found
 ```bash
 npm install
 npm run dev
 ```
 
-### ❌ Login fails with "Invalid email or password"
-Make sure `NEXT_PUBLIC_DEMO_MODE=false` in `.env.local` and Hasura is running at `localhost:8080`.
+---
+
+## 🔑 Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_HASURA_ENDPOINT` | Yes | Hasura GraphQL URL |
+| `HASURA_ADMIN_SECRET` | Yes | Server-side Hasura secret (never exposed to browser) |
+| `JWT_SECRET` | Yes | JWT signing secret — min 32 chars, must match `docker-compose.yml` |
+| `NEXT_PUBLIC_DEMO_MODE` | Yes | `true` = mock data, `false` = real DB |
+| `NEXT_PUBLIC_APP_URL` | No | App base URL for password reset links (default: `http://localhost:3000`) |
+| `SMTP_HOST` | No | Email host for password setup emails |
+| `SMTP_USER` | No | Email username |
+| `SMTP_PASS` | No | Email password |
+| `SMTP_PORT` | No | Email port (default: `587`) |
+| `SMTP_FROM` | No | From address for emails |
+
+> ⚠️ Never commit `.env.local` to git.

@@ -1,207 +1,227 @@
 # 🗄️ InternHub — Database Schema Reference
 
-## Overview
+**Database:** `intern_management`  
+**User:** `chatbot` / `chatbot123`  
+**Port:** `5432`
 
-This project uses **PostgreSQL** as the primary database, accessed via **Hasura GraphQL Engine**.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        DATABASE: intern_management               │
-│                        USER: chatbot / chatbot123                │
-│                        PORT: 5432                                │
-└─────────────────────────────────────────────────────────────────┘
-```
+---
 
 ## Table Relationships
 
 ```
 departments
     │
-    ├──< users (department_id)
+    ├──< users          (department_id)
     │
-    └──< interns (department_id)
+    └──< interns        (department_id)
               │
-              ├──< emergency_contacts (intern_id)
-              ├──< intern_documents   (intern_id)
-              ├──< performance_reviews (intern_id)
-              └──< attendance          (intern_id)
+              └──< task_interns  (intern_id)
+                        │
+                        └──< tasks (via task_interns.task_id)
+
+tasks
+    ├──< task_interns       (task_id)  ← many-to-many with interns
+    ├──< task_comments      (task_id)
+    └──< task_activity_log  (task_id)
 
 users ──< interns.mentor_id
 users ──< interns.created_by
 users ──< interns.user_id
+users ──< tasks.assigned_by
 ```
 
 ---
 
 ## Table 1 — `departments`
 
-Stores the 8 fixed departments in the company.
+8 fixed company departments.
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK, DEFAULT gen_random_uuid() | Unique identifier |
-| `name` | TEXT | NOT NULL, UNIQUE | Full department name |
-| `code` | TEXT | NOT NULL, UNIQUE | Short code e.g. `AI`, `PHP` |
-| `description` | TEXT | | What this department does |
-| `head_name` | TEXT | | Department head's name |
-| `head_email` | TEXT | | Department head's email |
-| `location` | TEXT | | Office floor/room |
-| `max_interns` | INT | DEFAULT 20 | Max intern capacity |
-| `is_active` | BOOLEAN | DEFAULT TRUE | Whether dept is active |
-| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation time |
-| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last updated time |
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | Auto-generated |
+| `name` | TEXT UNIQUE | Full department name |
+| `code` | TEXT UNIQUE | Short code e.g. `AI`, `PHP` |
+| `description` | TEXT | What this department does |
+| `head_name` | TEXT | Department head |
+| `max_interns` | INT | Capacity (default 20) |
+| `is_active` | BOOLEAN | Default true |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | Auto-updated via trigger |
 
-### Seeded Data
-
-| code | name |
-|------|------|
-| `.NET` | .NET Development |
-| `SAP` | SAP Consulting |
-| `AI` | Artificial Intelligence |
-| `MOBILE` | Mobile Development |
-| `ODOO` | Odoo/ERP |
-| `RPA` | Robotic Process Automation |
-| `PHP` | PHP Development |
-| `QC` | Quality Control |
+**Seeded departments:** `.NET`, `SAP`, `AI`, `MOBILE`, `ODOO`, `RPA`, `PHP`, `QC`
 
 ---
 
 ## Table 2 — `users`
 
-Stores all login accounts (admin, department persons, interns).
+All login accounts.
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK | Unique identifier |
-| `name` | TEXT | NOT NULL | Full name |
-| `email` | CITEXT | NOT NULL, UNIQUE | Email (case-insensitive) |
-| `password_hash` | TEXT | NOT NULL | bcrypt hashed password |
-| `role` | TEXT | NOT NULL, CHECK | `admin` / `department_person` / `intern` |
-| `phone` | TEXT | | Phone number |
-| `profile_photo` | TEXT | | URL to profile photo |
-| `designation` | TEXT | | Job title / position |
-| `department_id` | UUID | FK → departments.id | Department assignment |
-| `is_active` | BOOLEAN | DEFAULT TRUE | Account active status |
-| `last_login` | TIMESTAMPTZ | | Last login timestamp |
-| `created_at` | TIMESTAMPTZ | DEFAULT NOW() | Record creation time |
-| `updated_at` | TIMESTAMPTZ | DEFAULT NOW() | Last updated time |
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | |
+| `name` | TEXT | Full name |
+| `email` | CITEXT UNIQUE | Case-insensitive |
+| `password_hash` | TEXT | bcrypt hashed |
+| `role` | TEXT | `admin` / `department_person` / `intern` |
+| `phone` | TEXT | |
+| `department_id` | UUID FK → departments | |
+| `is_active` | BOOLEAN | |
+| `created_at` | TIMESTAMPTZ | |
+| `updated_at` | TIMESTAMPTZ | |
 
-### Default Admin User
-
-| Field | Value |
-|-------|-------|
-| Email | `admin@company.com` |
-| Password | `admin123` |
-| Role | `admin` |
+**Default admin:** `admin@company.com` / `admin123`
 
 ---
 
-## Table 3 — `interns` ⭐ (Main Table)
+## Table 3 — `interns` ⭐
 
-Full intern profile — personal, academic, and internship details.
+Full intern profile.
 
-### 🧍 Personal Details
-
+### Personal
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | UUID PK | Unique identifier |
-| `name` | TEXT NOT NULL | Full name |
-| `email` | CITEXT UNIQUE | Personal email |
-| `phone` | TEXT NOT NULL | Primary phone |
-| `alternate_phone` | TEXT | Secondary phone |
-| `date_of_birth` | DATE | Date of birth |
-| `gender` | TEXT | `male` / `female` / `other` / `prefer_not_to_say` |
-| `blood_group` | TEXT | A+, A-, B+, B-, AB+, AB-, O+, O- |
-| `nationality` | TEXT | Default: `Indian` |
-| `profile_photo` | TEXT | URL/path to photo |
+| `id` | UUID PK | |
+| `name` | TEXT NOT NULL | |
+| `email` | CITEXT UNIQUE | |
+| `phone` | TEXT | |
+| `date_of_birth` | DATE | |
+| `gender` | TEXT | `male/female/other/prefer_not_to_say` |
+| `profile_photo` | TEXT | URL |
 
-### 🏠 Address
+### Address
+`address_line1`, `address_line2`, `city`, `state`, `pincode`, `country`
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `address_line1` | TEXT | Street address |
-| `address_line2` | TEXT | Apt/Suite/Area |
-| `city` | TEXT | City |
-| `state` | TEXT | State |
-| `pincode` | TEXT | Postal code |
-| `country` | TEXT | Default: `India` |
+### Academic
+| Column | Description |
+|--------|-------------|
+| `college` | College name (required) |
+| `degree` | e.g. B.Tech, MCA (required) |
+| `branch` | e.g. Computer Science (required) |
+| `university` | Affiliated university |
+| `cgpa` | NUMERIC(4,2) |
+| `graduation_year` | Expected year |
 
-### 🎓 Academic / College Details
+### Internship
+| Column | Description |
+|--------|-------------|
+| `department_id` | FK → departments (required) |
+| `start_date` | Required |
+| `end_date` | Optional |
+| `status` | `applied/selected/active/completed/terminated/on_leave` |
+| `work_mode` | `onsite/remote/hybrid` |
+| `stipend` | Monthly stipend |
+| `mentor_id` | FK → users |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `college` | TEXT NOT NULL | College name |
-| `university` | TEXT | Affiliated university |
-| `degree` | TEXT NOT NULL | B.Tech / MCA / BCA / MBA etc. |
-| `branch` | TEXT NOT NULL | CSE / IT / ECE / Mech etc. |
-| `specialization` | TEXT | AI/ML, Data Science etc. |
-| `graduation_year` | INT | Expected graduation year |
-| `current_year` | INT | 1st / 2nd / 3rd / 4th year |
-| `cgpa` | NUMERIC(4,2) | e.g. `8.75` |
-| `percentage` | NUMERIC(5,2) | e.g. `87.50` % |
-| `student_id` | TEXT | College roll number |
-| `college_email` | TEXT | Official college email |
-| `college_city` | TEXT | College city |
-| `college_state` | TEXT | College state |
+### Skills & Social
+`skills TEXT[]`, `tools TEXT[]`, `languages_known TEXT[]`  
+`linkedin_url`, `github_url`, `portfolio_url`
 
-### 💼 Internship Details
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `department_id` | UUID NOT NULL FK | Assigned department |
-| `start_date` | DATE NOT NULL | Internship start |
-| `end_date` | DATE | Internship end |
-| `duration_months` | INT | Duration in months |
-| `status` | TEXT | `applied` / `selected` / `active` / `completed` / `terminated` / `on_leave` |
-| `work_mode` | TEXT | `onsite` / `remote` / `hybrid` |
-| `stipend` | NUMERIC(10,2) | Monthly stipend (₹) |
-| `offer_letter_date` | DATE | Offer letter issue date |
-| `joining_letter_date` | DATE | Joining letter date |
-| `mentor_id` | UUID FK → users.id | Assigned mentor |
-
-### 💡 Skills & Tech
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `skills` | TEXT[] | e.g. `['Python','React','SQL']` |
-| `languages_known` | TEXT[] | e.g. `['English','Hindi']` |
-| `tools` | TEXT[] | e.g. `['Git','Docker','Figma']` |
-
-### 🔗 Social Links
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `linkedin_url` | TEXT | LinkedIn profile |
-| `github_url` | TEXT | GitHub profile |
-| `portfolio_url` | TEXT | Personal portfolio |
-
-### 🪪 Identity & Reference
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `aadhar_number` | TEXT | Masked Aadhar (XXXX-XXXX-1234) |
-| `pan_number` | TEXT | PAN card number |
-| `reference_name` | TEXT | Reference person name |
-| `reference_contact` | TEXT | Reference phone/email |
-
-### ⚙️ System Fields
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `user_id` | UUID FK → users.id | Linked login account |
-| `created_by` | UUID FK → users.id | Who added this intern |
-| `notes` | TEXT | Admin notes |
-| `created_at` | TIMESTAMPTZ | Creation time |
-| `updated_at` | TIMESTAMPTZ | Last updated time |
+### System
+| Column | Description |
+|--------|-------------|
+| `user_id` | FK → users (linked login account) |
+| `created_by` | FK → users (who added this intern) |
+| `notes` | Admin notes |
 
 ---
 
-## Extensions Required
+## Table 4 — `tasks`
+
+Task assignments.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | |
+| `title` | TEXT NOT NULL | |
+| `description` | TEXT | |
+| `priority` | TEXT | `low/medium/high/critical` |
+| `status` | TEXT | `open/in_progress/completed/on_hold/cancelled` — controlled by admin/dept only |
+| `assigned_by` | UUID FK → users | Who created the task |
+| `department_id` | UUID FK → departments | |
+| `due_date` | DATE | |
+| `start_date` | DATE | Default today |
+| `completed_date` | DATE | Set when status → completed |
+| `estimated_hours` | NUMERIC | |
+| `tags` | TEXT[] | |
+| `intern_id` | UUID FK → interns | Backward compat (first intern) |
+| `parent_task_id` | UUID FK → tasks | Sub-task support |
+
+---
+
+## Table 5 — `task_interns` ⭐
+
+Many-to-many between tasks and interns. Tracks **per-intern completion** independently from `tasks.status`.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | |
+| `task_id` | UUID FK → tasks CASCADE | |
+| `intern_id` | UUID FK → interns CASCADE | |
+| `intern_status` | TEXT | `pending` / `completed` — each intern's own completion |
+| `created_at` | TIMESTAMPTZ | |
+
+> **Key design:** `tasks.status` is set by admin/dept person. `task_interns.intern_status` is set by each intern individually. They are independent — one intern completing their part does not change the overall task status.
+
+---
+
+## Table 6 — `task_comments`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | |
+| `task_id` | UUID FK → tasks CASCADE | |
+| `user_id` | UUID FK → users | |
+| `comment` | TEXT | |
+| `created_at` | TIMESTAMPTZ | |
+
+---
+
+## Table 7 — `task_activity_log`
+
+Audit trail of task changes.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID PK | |
+| `task_id` | UUID FK → tasks CASCADE | |
+| `user_id` | UUID FK → users | Who made the change |
+| `action` | TEXT | e.g. `status_changed`, `assigned` |
+| `old_value` | TEXT | Previous value |
+| `new_value` | TEXT | New value |
+| `created_at` | TIMESTAMPTZ | |
+
+---
+
+## Hasura Role Permissions
+
+| Table | admin | department_person | intern |
+|-------|-------|-------------------|--------|
+| `departments` | SELECT | SELECT | SELECT |
+| `users` | SELECT, UPDATE, DELETE | SELECT (own), UPDATE (own) | SELECT (own), UPDATE (own) |
+| `interns` | ALL | SELECT+UPDATE (own dept) | SELECT+UPDATE (own record, limited fields) |
+| `tasks` | ALL | SELECT+UPDATE+DELETE (own dept) | SELECT (assigned) |
+| `task_interns` | ALL | SELECT+UPDATE | SELECT+UPDATE (own, intern_status only) |
+
+---
+
+## Extensions
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- For gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS "citext";    -- For case-insensitive emails
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";  -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "citext";    -- case-insensitive email
 ```
 
 ---
 
+## Indexes
+
+```sql
+-- interns
+idx_interns_department, idx_interns_status, idx_interns_email, idx_interns_user
+
+-- tasks
+idx_tasks_status, idx_tasks_department, idx_tasks_due_date, idx_tasks_assigned_by
+
+-- task_interns
+idx_task_interns_task, idx_task_interns_intern, idx_task_interns_status
+```

@@ -1,19 +1,20 @@
 # 🎓 InternHub — Intern Management System
 
 A production-ready **Intern Management System** built with **Next.js**, **Hasura GraphQL**, and **PostgreSQL**.
-Manage interns across departments with role-based access control, JWT authentication, attendance tracking, and performance reviews.
+Manage interns across departments with role-based access control, JWT authentication, task management, and per-intern completion tracking.
 
 ---
 
 ## ✨ Features
 
 - 🔐 **JWT Authentication** — Role-based login (Admin / Department Person / Intern)
-- 👥 **Full Intern Profiles** — Personal, academic, internship & document details
+- 👥 **Full Intern Profiles** — Personal, academic, internship details
 - 🏢 **Department Management** — 8 departments with capacity tracking
 - 📊 **Dashboard Stats** — Real-time overview of intern data
-- 📋 **Attendance Tracking** — Daily check-in/check-out records
-- ⭐ **Performance Reviews** — Monthly rating system
+- ✅ **Task Management** — Create, assign, and track tasks per intern
+- 🎯 **Per-Intern Task Completion** — Each intern marks their own completion independently
 - 🔎 **Search & Filter** — By name, department, college, status
+- 🌙 **Dark Mode** — Full dark/light theme support
 - 🎭 **Demo Mode** — Run without any database setup
 
 ---
@@ -22,19 +23,32 @@ Manage interns across departments with role-based access control, JWT authentica
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16 + TypeScript |
-| Styling | TailwindCSS 4 |
+| Frontend | Next.js 15 + TypeScript |
+| Styling | TailwindCSS |
 | GraphQL Client | Apollo Client |
 | GraphQL Engine | Hasura v2.36 |
-| Database | PostgreSQL 15+ |
+| Database | PostgreSQL 15 |
 | Auth | JWT + bcryptjs |
-| Infrastructure | Docker (for Hasura) |
+| Infrastructure | Docker |
+
+---
+
+## 👤 Role Permissions
+
+| Action | Admin | Dept Person | Intern |
+|--------|-------|-------------|--------|
+| View all interns | ✅ | ✅ own dept | ✅ own record |
+| Add intern | ✅ | ❌ | ❌ |
+| Edit intern | ✅ | ✅ own dept | ✅ limited fields |
+| Delete intern | ✅ | ❌ | ❌ |
+| Create task | ✅ | ✅ own dept | ❌ |
+| Edit task | ✅ | ✅ own dept | ❌ |
+| Mark task complete | ✅ | ✅ own dept | ✅ assigned only |
+| Delete task | ✅ | ✅ own dept | ❌ |
 
 ---
 
 ## ⚡ Quick Start (Demo Mode — No Database Needed)
-
-Run the app instantly with demo data — no PostgreSQL or Docker required.
 
 ```bash
 # 1. Clone the repo
@@ -61,34 +75,21 @@ Open **http://localhost:3000** and log in with:
 | Dept Person (PHP) | `priya.php@company.com` | `dept123` |
 | Intern | `john.intern@student.com` | `intern123` |
 
-## Prerequisites
-
-You only need **two things** installed:
-
-| Tool | Download |
-|------|----------|
-| **Node.js 18+** | https://nodejs.org |
-| **Docker Desktop** | https://www.docker.com/products/docker-desktop |
-
-> ✅ No need to install PostgreSQL separately — it runs inside Docker!
-
 ---
 
 ## 🏗️ Full Setup (With PostgreSQL + Hasura)
 
-For the full production setup with a real database, see **[HOW_TO_RUN.md](./HOW_TO_RUN.md)**.
+See **[HOW_TO_RUN.md](./HOW_TO_RUN.md)** for the complete guide.
 
-### TL;DR — Full Setup Steps
+### TL;DR
 
 ```bash
 1. git clone + npm install
 2. cp .env.example .env.local  →  set NEXT_PUBLIC_DEMO_MODE=false
 3. docker compose up -d        →  starts PostgreSQL + Hasura automatically
-4. Open http://localhost:8080  →  Track All tables
+4. node apply-permissions.mjs  →  sets Hasura role permissions
 5. npm run dev
 ```
-
-> ✅ PostgreSQL runs inside Docker — no separate installation needed!
 
 ---
 
@@ -97,59 +98,80 @@ For the full production setup with a real database, see **[HOW_TO_RUN.md](./HOW_
 ```
 intern_hub/
 ├── app/
-│   ├── api/                        ← Next.js API routes
-│   │   ├── auth/login/route.ts     ← JWT login
-│   │   ├── departments/route.ts
-│   │   ├── interns/route.ts
+│   ├── api/                              ← Next.js API routes (admin-secret, server-side)
+│   │   ├── auth/login/route.ts           ← JWT login + user upsert
+│   │   ├── auth/utils.ts                 ← checkAuth, requireAdmin helpers
+│   │   ├── departments/route.ts          ← GET departments
+│   │   ├── interns/
+│   │   │   ├── route.ts                  ← GET interns (role-scoped)
+│   │   │   ├── create/route.ts           ← POST create intern + user account
+│   │   │   ├── update/route.ts           ← POST update intern
+│   │   │   └── delete/route.ts           ← POST delete intern
+│   │   ├── tasks/
+│   │   │   ├── get/route.ts              ← GET tasks (role-scoped)
+│   │   │   ├── create/route.ts           ← POST create task
+│   │   │   ├── update/route.ts           ← POST update task fields
+│   │   │   ├── update-status/route.ts    ← POST update task/intern status
+│   │   │   └── delete/route.ts           ← POST delete task
 │   │   └── users/
+│   │       └── create-department-person/ ← POST create dept person account
 │   ├── components/
+│   │   ├── Sidebar.tsx                   ← Role-aware navigation
 │   │   ├── Navbar.tsx
-│   │   ├── Sidebar.tsx
-│   │   ├── InternList/page.tsx     ← Intern table
-│   │   └── AddIntern/page.tsx      ← Add intern form
-│   ├── context/AuthContext.tsx     ← Auth state
-│   ├── dashboard/page.tsx          ← Stats overview
-│   └── interns/page.tsx            ← Intern list
+│   │   ├── Tasks/                        ← TaskCard, TaskList, TaskForm, TaskFilters
+│   │   ├── InternList/page.tsx           ← Intern table
+│   │   └── AddIntern/page.tsx            ← Add/edit intern form
+│   ├── context/
+│   │   ├── AuthContext.tsx               ← Auth state (login/logout/token)
+│   │   ├── TaskContext.tsx               ← Task state + permission helpers
+│   │   └── ThemeContext.tsx              ← Dark/light mode
+│   ├── dashboard/
+│   │   ├── page.tsx                      ← Stats overview + quick actions
+│   │   ├── tasks/page.tsx                ← Task dashboard
+│   │   ├── InternsView.tsx               ← Interns inside dashboard shell
+│   │   └── TaskDashboard.tsx             ← Task management UI
+│   └── interns/
+│       ├── page.tsx                      ← /interns route
+│       └── add/page.tsx                  ← /interns/add route
 ├── graphql/
-│   ├── queries.ts                  ← GraphQL queries
-│   └── mutations.ts                ← GraphQL mutations
+│   ├── queries.ts                        ← Apollo GraphQL queries
+│   └── mutations.ts                      ← Apollo GraphQL mutations
+├── hasura/
+│   └── metadata/
+│       └── metadata.json                 ← Hasura permissions (auto-applied on startup)
 ├── lib/
-│   ├── apolloClient.ts
-│   └── demoStore.ts                ← Demo mode data
-├── docker-compose.yml              ← Hasura config
-├── recreate_schema.sql             ← Full DB schema SQL
-├── DATABASE_SCHEMA.md              ← Schema documentation
-├── HOW_TO_RUN.md                   ← Detailed run guide
-└── .env.example                    ← Environment template
+│   ├── constants.ts                      ← UserData, InternData types
+│   └── demoStore.ts                      ← Demo mode in-memory data
+├── apply-permissions.mjs                 ← One-time Hasura permission setup
+├── docker-compose.yml                    ← PostgreSQL + Hasura config
+├── init.sql                              ← Auto-runs on first Docker start
+├── HOW_TO_RUN.md                         ← Detailed setup guide
+└── .env.example                          ← Environment template
 ```
 
 ---
 
-## 🗄️ Database Schema
-
-The system uses **7 tables**. See **[DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md)** for full details.
+## 🗄️ Database Tables
 
 | Table | Purpose |
 |-------|---------|
 | `departments` | 8 company departments |
-| `users` | Login accounts (admin/dept/intern) |
+| `users` | Login accounts (admin / dept person / intern) |
 | `interns` | Full intern profiles (40+ fields) |
-| `emergency_contacts` | Emergency contacts per intern |
-| `intern_documents` | Uploaded documents |
-| `performance_reviews` | Monthly performance ratings |
-| `attendance` | Daily attendance records |
+| `tasks` | Task assignments with priority and status |
+| `task_interns` | Many-to-many intern↔task + per-intern completion status |
+| `task_comments` | Comments on tasks |
+| `task_activity_log` | Audit log of task changes |
 
 ---
 
 ## 🔑 Environment Variables
 
-Copy `.env.example` to `.env.local` and fill in your values:
-
 ```env
 NEXT_PUBLIC_HASURA_ENDPOINT=http://localhost:8080/v1/graphql
 HASURA_ADMIN_SECRET=your_admin_secret
 JWT_SECRET=your_long_random_jwt_secret_min_32_chars
-NEXT_PUBLIC_DEMO_MODE=true
+NEXT_PUBLIC_DEMO_MODE=false
 ```
 
 > ⚠️ Never commit `.env.local` — it is already in `.gitignore`.
@@ -163,26 +185,6 @@ NEXT_PUBLIC_DEMO_MODE=true
 | Next.js App | http://localhost:3000 |
 | Hasura Console | http://localhost:8080 |
 | GraphQL API | http://localhost:8080/v1/graphql |
-
----
-
-## 📖 Documentation
-
-| File | Description |
-|------|-------------|
-| [HOW_TO_RUN.md](./HOW_TO_RUN.md) | Detailed step-by-step setup guide |
-| [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) | All 7 table schemas documented |
-| [recreate_schema.sql](./recreate_schema.sql) | Full SQL to create all tables |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Open a Pull Request
 
 ---
 
