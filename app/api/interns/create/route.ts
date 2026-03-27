@@ -26,16 +26,18 @@ export async function POST(req: NextRequest) {
       email: string;
       phone?: string | null;
       college: string;
+      degree: string;
+      branch: string;
       department_id: string;
       start_date: string;
       end_date?: string | null;
       status?: string;
     };
 
-    const { name, email, phone, college, department_id, start_date, end_date, status } = body;
+    const { name, email, phone, college, degree, branch, department_id, start_date, end_date, status } = body;
 
-    if (!name || !email || !college || !department_id || !start_date) {
-      return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+    if (!name || !email || !college || !degree || !branch || !department_id || !start_date) {
+      return NextResponse.json({ message: 'Missing required fields: name, email, college, degree, branch, department, start date' }, { status: 400 });
     }
 
     const safeEmail = email.trim().toLowerCase();
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
           email: safeEmail,
           phone: phone || null,
           college: college.trim(),
+          degree: degree.trim(),
+          branch: branch.trim(),
           department_id,
           start_date,
           end_date: end_date || null,
