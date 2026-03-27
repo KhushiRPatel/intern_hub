@@ -11,7 +11,7 @@ import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/pa
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
 export function AddInternView() {
-    const { user } = useAuth();
+    const { user, token } = useAuth();
     const { setCurrentView } = useNavigation();
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -20,13 +20,13 @@ export function AddInternView() {
     const [departments, setDepartments] = useState(IS_DEMO ? DEMO_DEPARTMENTS : []);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: deptData } = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO }) as any;
-    useEffect(() => { 
-      if (deptData?.departments) setDepartments(deptData.departments);
+    useEffect(() => {
+        if (deptData?.departments) setDepartments(deptData.departments);
     }, [deptData]);
 
-    const { refetch: refetchInterns } = useQuery(GET_INTERNS, { 
-      variables: { where: {}, order_by: [{ created_at: 'desc' }] },
-      skip: IS_DEMO 
+    const { refetch: refetchInterns } = useQuery(GET_INTERNS, {
+        variables: { where: {}, order_by: [{ created_at: 'desc' }] },
+        skip: IS_DEMO
     });
     const { refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, { skip: IS_DEMO });
 
@@ -61,7 +61,10 @@ export function AddInternView() {
             } else {
                 const res = await fetch('/api/interns/create', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`, 
+                    },
                     body: JSON.stringify({
                         name: values.name.trim(),
                         email: values.email.trim().toLowerCase(),

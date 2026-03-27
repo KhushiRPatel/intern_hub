@@ -30,6 +30,7 @@ export interface UserData {
     role: UserRole;
     department_id?: string | null;
     department_name?: string | null;
+    intern_id?: string; // For interns, their intern record ID
 }
 
 export interface DepartmentData {

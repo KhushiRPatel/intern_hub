@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { checkAuth, requireAdmin, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
 const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
@@ -25,6 +26,21 @@ function generateTempPassword(): string {
 
 export async function POST(req: NextRequest) {
     try {
+        // Check authentication and authorization
+        const authCheck = checkAuth(req);
+        if (!authCheck.success || !authCheck.decoded) {
+            return authCheck.response!;
+        }
+
+        const { userId, role } = getUserFromToken(authCheck.decoded);
+
+        // Only admins can create interns
+        const adminError = requireAdmin(authCheck.decoded);
+        if (adminError) {
+            logPermissionDenial(userId, role, 'create_intern');
+            return adminError;
+        }
+
         const body = await req.json();
         const { name, email, phone, college, degree, branch, department_id, start_date, end_date, status } = body as {
             name: string;
@@ -80,7 +96,7 @@ export async function POST(req: NextRequest) {
             }
         );
 
-        const userId = userResult.insert_users_one.id;
+        const newUserId = userResult.insert_users_one.id;
 
         // 3) Create intern linked to user
         type InsertInternResult = {
@@ -110,7 +126,7 @@ export async function POST(req: NextRequest) {
                     start_date,
                     end_date: end_date || null,
                     status: status || 'active',
-                    user_id: userId,
+                    user_id: newUserId,
                 },
             }
         );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkAuth, requireAdmin, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
 const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
@@ -19,6 +20,21 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
 
 export async function POST(req: NextRequest) {
     try {
+        // Check authentication and authorization
+        const authCheck = checkAuth(req);
+        if (!authCheck.success || !authCheck.decoded) {
+            return authCheck.response!;
+        }
+
+        const { userId, role } = getUserFromToken(authCheck.decoded);
+
+        // Only admins can update interns
+        const adminError = requireAdmin(authCheck.decoded);
+        if (adminError) {
+            logPermissionDenial(userId, role, 'update_intern');
+            return adminError;
+        }
+
         const body = await req.json();
         const { id, name, email, phone, college, degree, branch, department_id, start_date, end_date, status } = body as {
             id: string;
