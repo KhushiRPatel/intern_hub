@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Task } from '@/app/context/TaskContext';
+import { UserRole } from '@/lib/constants';
 import TaskCard from './TaskCard';
 
 interface TaskListProps {
@@ -14,6 +15,7 @@ interface TaskListProps {
   canDelete?: (task: Task) => boolean;
   canChangeStatus?: (task: Task, newStatus: string) => boolean;
   showInternName?: boolean;
+  userRole?: UserRole;
   emptyMessage?: string;
 }
 
@@ -23,33 +25,38 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
   onStatusChange,
-  canEdit = () => false,
-  canDelete = () => false,
+  canEdit        = () => false,
+  canDelete      = () => false,
   canChangeStatus = () => false,
   showInternName = false,
-  emptyMessage = 'No tasks found',
+  userRole       = 'intern',
+  emptyMessage   = 'No tasks found',
 }) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin">
-          <div className="border-t-4 border-b-4 border-blue-500 rounded-full h-12 w-12"></div>
-        </div>
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (tasks.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">{emptyMessage}</p>
+      <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+        <svg className="w-12 h-12 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <p className="text-gray-500 font-medium">{emptyMessage}</p>
+        {userRole === 'intern' && (
+          <p className="text-sm text-gray-400 mt-1">Tasks assigned to you will appear here</p>
+        )}
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {tasks.map((task) => (
+      {tasks.map(task => (
         <TaskCard
           key={task.id}
           task={task}
@@ -58,8 +65,11 @@ export const TaskList: React.FC<TaskListProps> = ({
           onStatusChange={onStatusChange}
           canEdit={canEdit(task)}
           canDelete={canDelete(task)}
-          canChangeStatus={canChangeStatus(task, task.status)}
+          // For status change, pass the next logical status — 'completed' for interns
+          // For admin/dept we pass task.status as placeholder (TaskCard shows a dropdown)
+          canChangeStatus={canChangeStatus(task, 'completed')}
           showInternName={showInternName}
+          userRole={userRole}
         />
       ))}
     </div>

@@ -1,0 +1,612 @@
+{
+  "version": 3,
+  "sources": [
+    {
+      "name": "default",
+      "kind": "postgres",
+      "tables": [
+        {
+          "table": {
+            "name": "departments",
+            "schema": "public"
+          },
+          "array_relationships": [
+            {
+              "name": "interns",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "department_id",
+                  "table": {
+                    "name": "interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "tasks",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "department_id",
+                  "table": {
+                    "name": "tasks",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "users",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "department_id",
+                  "table": {
+                    "name": "users",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ],
+          "select_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": "*",
+                "filter": {},
+                "allow_aggregations": true
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": "*",
+                "filter": {},
+                "allow_aggregations": true
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "interns",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "department",
+              "using": {
+                "foreign_key_constraint_on": "department_id"
+              }
+            },
+            {
+              "name": "user",
+              "using": {
+                "foreign_key_constraint_on": "created_by"
+              }
+            },
+            {
+              "name": "userByMentorId",
+              "using": {
+                "foreign_key_constraint_on": "mentor_id"
+              }
+            },
+            {
+              "name": "userByUserId",
+              "using": {
+                "foreign_key_constraint_on": "user_id"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "task_interns",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "intern_id",
+                  "table": {
+                    "name": "task_interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "tasks",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "intern_id",
+                  "table": {
+                    "name": "tasks",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ],
+          "select_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "department_id": {
+                    "_eq": "X-Hasura-Department-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "user_id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            }
+          ],
+          "update_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": [
+                  "name",
+                  "phone",
+                  "college",
+                  "degree",
+                  "branch",
+                  "department_id",
+                  "start_date",
+                  "end_date",
+                  "status"
+                ],
+                "filter": {
+                  "department_id": {
+                    "_eq": "X-Hasura-Department-Id"
+                  }
+                },
+                "check": {}
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": [
+                  "phone",
+                  "linkedin_url",
+                  "github_url",
+                  "portfolio_url",
+                  "address_line1",
+                  "address_line2",
+                  "city",
+                  "state",
+                  "pincode"
+                ],
+                "filter": {
+                  "user_id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "check": {}
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "task_activity_log",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "task",
+              "using": {
+                "foreign_key_constraint_on": "task_id"
+              }
+            },
+            {
+              "name": "user",
+              "using": {
+                "foreign_key_constraint_on": "user_id"
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "task_comments",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "task",
+              "using": {
+                "foreign_key_constraint_on": "task_id"
+              }
+            },
+            {
+              "name": "user",
+              "using": {
+                "foreign_key_constraint_on": "user_id"
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "task_interns",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "intern",
+              "using": {
+                "foreign_key_constraint_on": "intern_id"
+              }
+            },
+            {
+              "name": "task",
+              "using": {
+                "foreign_key_constraint_on": "task_id"
+              }
+            }
+          ],
+          "select_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": "*",
+                "filter": {},
+                "allow_aggregations": true
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "intern_id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            }
+          ],
+          "update_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": [
+                  "intern_status"
+                ],
+                "filter": {},
+                "check": {}
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": [
+                  "intern_status"
+                ],
+                "filter": {
+                  "intern_id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "check": {}
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "tasks",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "department",
+              "using": {
+                "foreign_key_constraint_on": "department_id"
+              }
+            },
+            {
+              "name": "intern",
+              "using": {
+                "foreign_key_constraint_on": "intern_id"
+              }
+            },
+            {
+              "name": "task",
+              "using": {
+                "foreign_key_constraint_on": "parent_task_id"
+              }
+            },
+            {
+              "name": "user",
+              "using": {
+                "foreign_key_constraint_on": "assigned_by"
+              }
+            },
+            {
+              "name": "userByAssignedTo",
+              "using": {
+                "foreign_key_constraint_on": "assigned_to"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "task_activity_logs",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "task_id",
+                  "table": {
+                    "name": "task_activity_log",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "task_comments",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "task_id",
+                  "table": {
+                    "name": "task_comments",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "task_interns",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "task_id",
+                  "table": {
+                    "name": "task_interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "tasks",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "parent_task_id",
+                  "table": {
+                    "name": "tasks",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ],
+          "select_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "department_id": {
+                    "_eq": "X-Hasura-Department-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "task_interns": {
+                    "intern_id": {
+                      "_eq": "X-Hasura-User-Id"
+                    }
+                  }
+                },
+                "allow_aggregations": true
+              }
+            }
+          ],
+          "delete_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "filter": {
+                  "department_id": {
+                    "_eq": "X-Hasura-Department-Id"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "table": {
+            "name": "users",
+            "schema": "public"
+          },
+          "object_relationships": [
+            {
+              "name": "department",
+              "using": {
+                "foreign_key_constraint_on": "department_id"
+              }
+            }
+          ],
+          "array_relationships": [
+            {
+              "name": "interns",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "created_by",
+                  "table": {
+                    "name": "interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "internsByMentorId",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "mentor_id",
+                  "table": {
+                    "name": "interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "internsByUserId",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "user_id",
+                  "table": {
+                    "name": "interns",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "task_activity_logs",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "user_id",
+                  "table": {
+                    "name": "task_activity_log",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "task_comments",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "user_id",
+                  "table": {
+                    "name": "task_comments",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "tasks",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "assigned_by",
+                  "table": {
+                    "name": "tasks",
+                    "schema": "public"
+                  }
+                }
+              }
+            },
+            {
+              "name": "tasksByAssignedTo",
+              "using": {
+                "foreign_key_constraint_on": {
+                  "column": "assigned_to",
+                  "table": {
+                    "name": "tasks",
+                    "schema": "public"
+                  }
+                }
+              }
+            }
+          ],
+          "select_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": "*",
+                "filter": {
+                  "id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "allow_aggregations": true
+              }
+            }
+          ],
+          "update_permissions": [
+            {
+              "role": "department_person",
+              "permission": {
+                "columns": [
+                  "name",
+                  "phone",
+                  "department_id"
+                ],
+                "filter": {
+                  "id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "check": {}
+              }
+            },
+            {
+              "role": "intern",
+              "permission": {
+                "columns": [
+                  "phone"
+                ],
+                "filter": {
+                  "id": {
+                    "_eq": "X-Hasura-User-Id"
+                  }
+                },
+                "check": {}
+              }
+            }
+          ]
+        }
+      ],
+      "configuration": {
+        "connection_info": {
+          "database_url": {
+            "from_env": "HASURA_GRAPHQL_DATABASE_URL"
+          },
+          "isolation_level": "read-committed",
+          "pool_settings": {
+            "connection_lifetime": 600,
+            "idle_timeout": 180,
+            "max_connections": 50,
+            "retries": 1
+          },
+          "use_prepared_statements": true
+        }
+      }
+    }
+  ]
+}

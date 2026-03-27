@@ -35,7 +35,7 @@ export function AddInternView() {
             <div className="text-center py-20">
                 <p className="text-red-600 font-semibold">Access Denied</p>
                 <p className="text-slate-500 text-sm mt-2">Only admins can add interns</p>
-            </div>
+            </div> 
         );
     }
 
@@ -49,8 +49,8 @@ export function AddInternView() {
                     email: values.email.trim().toLowerCase(),
                     phone: values.phone || undefined,
                     college: values.college.trim(),
-                    degree: values.degree.trim(),
-                    branch: values.branch.trim(),
+                    degree: '',
+                    branch: '',
                     department_id: values.department_id,
                     start_date: values.start_date,
                     end_date: values.end_date || undefined,

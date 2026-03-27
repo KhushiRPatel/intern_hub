@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAuth, getUserFromToken } from '../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
 
 async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_ENDPOINT, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-hasura-admin-secret': HASURA_ADMIN,
-    },
+    headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': HASURA_ADMIN },
     body: JSON.stringify({ query, variables }),
   });
   const json = await res.json();
@@ -18,85 +15,51 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
   return json.data as T;
 }
 
+const INTERN_FIELDS = `
+  id name email phone college degree branch
+  department_id department { id name }
+  start_date end_date status user_id created_at
+`;
+
 export async function GET(req: NextRequest) {
   try {
-    // Check authentication
     const authCheck = checkAuth(req);
-    if (!authCheck.success || !authCheck.decoded) {
-      return authCheck.response!;
-    }
-
+    if (!authCheck.success || !authCheck.decoded) return authCheck.response!;
     const { userId, role, departmentId } = getUserFromToken(authCheck.decoded);
+
     const { searchParams } = new URL(req.url);
-    const requestedDepartmentId = searchParams.get('department_id');
+    const requestedDeptId = searchParams.get('department_id');
+    const search          = searchParams.get('search');
+    const college         = searchParams.get('college');
+    const status          = searchParams.get('status');
 
-    let query: string;
-    let variables: Record<string, unknown>;
+    // Build where conditions as an array then join with commas
+    const conditions: string[] = [];
 
-    // Build query based on role
-    if (role === 'admin') {
-      // Admin sees all interns, or filtered by department if specified
-      if (requestedDepartmentId) {
-        query = `
-          query GetInternsByDepartment($department_id: uuid!) {
-            interns(where: { department_id: { _eq: $department_id } }, order_by: { name: asc }) {
-              id
-              name
-              email
-              department_id
-              created_at
-              updated_at
-            }
-          }
-        `;
-        variables = { department_id: requestedDepartmentId };
-      } else {
-        query = `
-          query GetAllInterns {
-            interns(order_by: { name: asc }) {
-              id
-              name
-              email
-              department_id
-              created_at
-              updated_at
-            }
-          }
-        `;
-        variables = {};
-      }
+    if (role === 'intern') {
+      conditions.push(`user_id: { _eq: "${userId}" }`);
     } else if (role === 'department_person') {
-      // Dept person sees only their department's interns
-      if (requestedDepartmentId && requestedDepartmentId !== departmentId) {
-        console.warn(`[AUTH] Permission denied - Dept person tried to access different department`);
+      if (requestedDeptId && requestedDeptId !== departmentId) {
         return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
       }
-
-      query = `
-        query GetInternsByDepartment($department_id: uuid!) {
-          interns(where: { department_id: { _eq: $department_id } }, order_by: { name: asc }) {
-            id
-            name
-            email
-            department_id
-            created_at
-            updated_at
-          }
-        }
-      `;
-      variables = { department_id: departmentId };
-    } else if (role === 'intern') {
-      // Interns cannot list other interns
-      console.warn(`[AUTH] Permission denied - Intern tried to list interns`);
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    } else {
-      return NextResponse.json({ error: 'Invalid role' }, { status: 403 });
+      conditions.push(`department_id: { _eq: "${departmentId}" }`);
+    } else if (role === 'admin') {
+      if (requestedDeptId) conditions.push(`department_id: { _eq: "${requestedDeptId}" }`);
     }
 
-    const data = await hasura<{ interns: any[] }>(query, variables);
+    if (search)  conditions.push(`name: { _ilike: "%${search.replace(/"/g, '')}%" }`);
+    if (college) conditions.push(`college: { _ilike: "%${college.replace(/"/g, '')}%" }`);
+    if (status)  conditions.push(`status: { _eq: "${status.replace(/"/g, '')}" }`);
+
+    const where = conditions.length > 0 ? `where: { ${conditions.join(', ')} }` : '';
+
+    const data = await hasura<{ interns: unknown[] }>(
+      `query { interns(${where} order_by: { created_at: desc }) { ${INTERN_FIELDS} } }`,
+      {},
+    );
     return NextResponse.json(data.interns);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch interns';
-    return NextResponse.json({ message }, { status: 500 });
+    console.error('[api/interns GET]', err);
+    return NextResponse.json({ message: err instanceof Error ? err.message : 'Server error' }, { status: 500 });
   }
 }

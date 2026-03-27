@@ -1,7 +1,6 @@
 -- ============================================================
 -- INTERNHUB — Auto-init SQL
--- This file runs AUTOMATICALLY when PostgreSQL starts in Docker
--- for the FIRST time (fresh volume). Do not run manually.
+-- Runs automatically when PostgreSQL starts in Docker (fresh volume).
 -- ============================================================
 
 -- ── Extensions ────────────────────────────────────────────────────────────────
@@ -137,53 +136,50 @@ CREATE TABLE IF NOT EXISTS interns (
   updated_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
-
 -- ── 4. TASKS ──────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tasks (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Basic Info
   title           TEXT        NOT NULL,
   description     TEXT,
   priority        TEXT        NOT NULL DEFAULT 'medium'
-                                      CHECK (priority IN ('low','medium','high','critical')),
+                              CHECK (priority IN ('low','medium','high','critical')),
   status          TEXT        NOT NULL DEFAULT 'open'
-                                      CHECK (status IN ('open','in_progress','completed','on_hold','cancelled')),
-  
-  -- Assignment (intern_id kept for backward compatibility, can be NULL)
+                              CHECK (status IN ('open','in_progress','completed','on_hold','cancelled')),
+
+  -- intern_id kept for backward compatibility, canonical list is in task_interns
   intern_id       UUID        REFERENCES interns(id) ON DELETE SET NULL,
   assigned_by     UUID        NOT NULL REFERENCES users(id),
   assigned_to     UUID        REFERENCES users(id),
-  
-  -- Dates
+
   due_date        DATE,
   start_date      DATE        DEFAULT CURRENT_DATE,
   completed_date  DATE,
-  
-  -- Tracking
   estimated_hours NUMERIC(6,2),
-  
-  -- Relations
+
   department_id   UUID        NOT NULL REFERENCES departments(id),
   parent_task_id  UUID        REFERENCES tasks(id),
-  
-  -- Metadata
+
   tags            TEXT[],
   attachment_url  TEXT,
   notes           TEXT,
-  
+
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ── 4.1 TASK_INTERNS (Junction table for many-to-many relationship) ──────────
+-- ── 4.1 TASK_INTERNS — many-to-many + per-intern completion ──────────────────
+-- intern_status tracks each intern's own completion independently.
+-- tasks.status is controlled by admin/dept_person only.
 CREATE TABLE IF NOT EXISTS task_interns (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id       UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  intern_id     UUID        NOT NULL REFERENCES interns(id) ON DELETE CASCADE,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id        UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  intern_id      UUID        NOT NULL REFERENCES interns(id) ON DELETE CASCADE,
+  -- ← NEW: per-intern completion status (does NOT affect tasks.status)
+  intern_status  TEXT        NOT NULL DEFAULT 'pending'
+                             CHECK (intern_status IN ('pending','completed')),
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ DEFAULT NOW(),
+
   UNIQUE(task_id, intern_id)
 );
 
@@ -233,22 +229,49 @@ CREATE OR REPLACE TRIGGER task_interns_updated_at
   BEFORE UPDATE ON task_interns FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ── INDEXES ───────────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_interns_department ON interns(department_id);
-CREATE INDEX IF NOT EXISTS idx_interns_status     ON interns(status);
-CREATE INDEX IF NOT EXISTS idx_interns_mentor     ON interns(mentor_id);
-CREATE INDEX IF NOT EXISTS idx_interns_email      ON interns(email);
+CREATE INDEX IF NOT EXISTS idx_interns_department  ON interns(department_id);
+CREATE INDEX IF NOT EXISTS idx_interns_status      ON interns(status);
+CREATE INDEX IF NOT EXISTS idx_interns_mentor      ON interns(mentor_id);
+CREATE INDEX IF NOT EXISTS idx_interns_email       ON interns(email);
+CREATE INDEX IF NOT EXISTS idx_interns_user        ON interns(user_id);
 
--- Task indexes
-CREATE INDEX IF NOT EXISTS idx_tasks_intern       ON tasks(intern_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status       ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_department   ON tasks(department_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_due_date     ON tasks(due_date);
-CREATE INDEX IF NOT EXISTS idx_tasks_assigned_by  ON tasks(assigned_by);
+CREATE INDEX IF NOT EXISTS idx_tasks_intern        ON tasks(intern_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status        ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_department    ON tasks(department_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date      ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_by   ON tasks(assigned_by);
 
--- Task interns indexes
 CREATE INDEX IF NOT EXISTS idx_task_interns_task   ON task_interns(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_interns_intern ON task_interns(intern_id);
+-- ← NEW: index for filtering by per-intern status
+CREATE INDEX IF NOT EXISTS idx_task_interns_status ON task_interns(intern_status);
 
--- Task comments & activity indexes
-CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
-CREATE INDEX IF NOT EXISTS idx_task_activity_task ON task_activity_log(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_comments_task  ON task_comments(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_activity_task  ON task_activity_log(task_id);
+
+-- ── HASURA METADATA: role-based row permissions ───────────────────────────────
+-- These are applied via Hasura metadata (not raw SQL).
+-- Document them here as comments so teammates know what to configure
+-- in Hasura Console → Data → [table] → Permissions tab.
+--
+-- TABLE: interns
+--   admin            SELECT  filter: {}
+--   department_person SELECT  filter: { department_id: { _eq: "X-Hasura-Department-Id" } }
+--   intern           SELECT  filter: { user_id:        { _eq: "X-Hasura-User-Id" } }
+--
+-- TABLE: departments
+--   admin            SELECT  filter: {}
+--   department_person SELECT  filter: {}
+--   intern           SELECT  filter: {}
+--
+-- TABLE: tasks
+--   admin            SELECT  filter: {}
+--   department_person SELECT  filter: { department_id: { _eq: "X-Hasura-Department-Id" } }
+--   intern           SELECT  filter: { task_interns: { intern_id: { _eq: "X-Hasura-User-Id" } } }
+--
+-- TABLE: task_interns
+--   admin            SELECT  filter: {}
+--   department_person SELECT  filter: {}
+--   intern           SELECT  filter: { intern_id: { _eq: "X-Hasura-User-Id" } }
+--
+-- See HOW_TO_RUN.md for step-by-step instructions to apply these in Hasura Console.

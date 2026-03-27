@@ -1,186 +1,121 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
 
-interface DecodedToken {
-  sub: string;
-  name: string;
-  email: string;
-  'https://hasura.io/jwt/claims': {
-    'x-hasura-user-id': string;
-    'x-hasura-role': string;
-    'x-hasura-department-id'?: string;
-  };
-}
-
-async function executeGraphQL(query: string, variables: any, adminSecret: string) {
-  const response = await fetch(HASURA_ENDPOINT, {
+async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
+  const res = await fetch(HASURA_ENDPOINT, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Hasura-Admin-Secret': adminSecret,
-    },
+    headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': HASURA_ADMIN },
     body: JSON.stringify({ query, variables }),
   });
-
-  const data = await response.json();
-  if (data.errors) {
-    throw new Error(data.errors[0].message);
-  }
-  return data;
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors[0]?.message ?? 'Hasura error');
+  return json.data as T;
 }
 
-// Ensure user exists before creating task
-async function ensureUserExists(userId: string, email: string, name: string, role: string, departmentId?: string) {
+export async function POST(req: NextRequest) {
   try {
-    console.log('[task/create] ensureUserExists start:', { userId, email });
-    
-    // Try to upsert with conflict on email constraint
-    const mutation = `
-      mutation UpsertUser($id: uuid!, $name: String!, $email: citext!, $role: String!, $password_hash: String!, $department_id: uuid) {
-        insert_users_one(
-          object: { 
-            id: $id
-            name: $name
-            email: $email
-            role: $role
-            password_hash: $password_hash
-            department_id: $department_id
-          }
-          on_conflict: { 
-            constraint: users_email_key
-            update_columns: [name, role, department_id, id]
-          }
-        ) {
-          id
-        }
-      }
-    `;
-    
-    const result = await executeGraphQL(mutation, {
-      id: userId,
-      name,
-      email,
-      role,
-      password_hash: '$2a$10$placeholder.hash.for.demo.users.only',
-      department_id: departmentId || null,
-    }, HASURA_ADMIN);
-    
-    if (!result.data?.insert_users_one?.id) {
-      throw new Error('Upsert failed - no id returned');
-    }
-    
-    console.log('[task/create] User upserted successfully:', userId);
-  } catch (error) {
-    console.error('[task/create] Failed to ensure user exists:', error);
-    throw error;
-  }
-}
+    // ── Auth (FIX: was using jwt.decode — no verification!) ─────────────────
+    const authCheck = checkAuth(req);
+    if (!authCheck.success || !authCheck.decoded) return authCheck.response!;
+    const { userId, role, departmentId } = getUserFromToken(authCheck.decoded);
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const decoded = jwt.decode(token) as DecodedToken;
-    
-    if (!decoded || !decoded['https://hasura.io/jwt/claims']) {
-      console.error('Token decode failed:', { decoded, token: token?.substring(0, 50) });
-      return NextResponse.json({ error: 'Invalid token structure' }, { status: 401 });
-    }
-    
-    const userId = decoded['https://hasura.io/jwt/claims']['x-hasura-user-id'];
-    const userRole = decoded['https://hasura.io/jwt/claims']['x-hasura-role'];
-    const departmentId = decoded['https://hasura.io/jwt/claims']['x-hasura-department-id'];
-    
-    console.log('Create task - Auth:', { 
-      userId, 
-      userRole, 
-      departmentId,
-      tokenClaims: decoded['https://hasura.io/jwt/claims']
-    });
-
-    const { title, description, priority, status, intern_ids, department_id, due_date, start_date, estimated_hours, tags, notes } = body;
-
-    // Validate required fields
-    if (!title || !intern_ids || !Array.isArray(intern_ids) || intern_ids.length === 0) {
-      return NextResponse.json({ error: 'Missing required fields: title and at least one intern_id' }, { status: 400 });
-    }
-
-    // Permission check: Only admin and dept person can create tasks
-    if (userRole !== 'admin' && userRole !== 'department_person') {
+    // ── Permission: only admin and dept_person can create ───────────────────
+    if (role !== 'admin' && role !== 'department_person') {
+      logPermissionDenial(userId, role, 'create_task');
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Dept person can only create for their department
-    if (userRole === 'department_person' && department_id !== departmentId) {
+    const body = await req.json();
+    const { title, description, priority, status, intern_ids, department_id,
+            due_date, start_date, estimated_hours, tags, notes } = body;
+
+    if (!title || !Array.isArray(intern_ids) || intern_ids.length === 0) {
+      return NextResponse.json(
+        { error: 'Missing required fields: title and at least one intern' },
+        { status: 400 },
+      );
+    }
+
+    // ── Dept person can only create for their own department ────────────────
+    if (role === 'department_person' && department_id !== departmentId) {
+      logPermissionDenial(userId, role, 'create_task_other_dept');
       return NextResponse.json({ error: 'Cannot create tasks in other departments' }, { status: 403 });
     }
 
-    // Ensure user exists before creating task
-    console.log('[task/create] Ensuring user exists before task creation');
-    await ensureUserExists(userId, decoded.email, decoded.name, userRole, departmentId);
+    // ── Resolve the real DB user id for assigned_by FK ──────────────────────
+    // The token's userId may differ from the DB id (e.g. demo users seeded by
+    // init.sql get a different UUID than the hardcoded demo login IDs).
+    // Always look up by email — the unique key that never mismatches.
+    const { decoded } = authCheck;
+    const tokenEmail  = (decoded as any).email as string;
 
-    // Create task with first intern (for backward compatibility) or NULL
-    const createTaskMutation = `
-      mutation InsertTask($object: tasks_insert_input!) {
-        insert_tasks_one(object: $object) {
-          id
-          title
-          status
-          priority
-          due_date
-        }
-      }
-    `;
+    const dbUserData = await hasura<{ users: { id: string }[] }>(
+      `query GetUserByEmail($email: citext!) {
+        users(where: { email: { _eq: $email } }, limit: 1) { id }
+      }`,
+      { email: tokenEmail },
+    );
 
-    const taskResult = await executeGraphQL(createTaskMutation, {
-      object: {
-        title,
-        description: description || null,
-        priority: priority || 'medium',
-        status: status || 'open',
-        intern_id: intern_ids[0] || null,
-        assigned_by: userId,
-        department_id,
-        due_date: due_date || null,
-        start_date: start_date || new Date().toISOString().split('T')[0],
-        estimated_hours: estimated_hours || null,
-        tags: tags && tags.length > 0 ? tags : null,
-        notes: notes || null,
+    // If not found, insert fresh (first-time demo user not yet in DB)
+    let realUserId = dbUserData.users?.[0]?.id;
+    if (!realUserId) {
+      const inserted = await hasura<{ insert_users_one: { id: string } }>(
+        `mutation InsertUser($id: uuid!, $name: String!, $email: citext!, $role: String!, $dept: uuid) {
+          insert_users_one(
+            object: { id: $id, name: $name, email: $email, role: $role, password_hash: "pending-set-via-email", department_id: $dept }
+            on_conflict: { constraint: users_email_key, update_columns: [] }
+          ) { id }
+        }`,
+        {
+          id:    userId,
+          name:  (decoded as any).name ?? 'Unknown',
+          email: tokenEmail,
+          role,
+          dept:  departmentId || null,
+        },
+      );
+      realUserId = inserted.insert_users_one?.id ?? userId;
+    }
+
+    // ── Create task ─────────────────────────────────────────────────────────
+    const taskData = await hasura<{ insert_tasks_one: { id: string; title: string; status: string; priority: string; due_date: string } }>(
+      `mutation InsertTask($obj: tasks_insert_input!) {
+        insert_tasks_one(object: $obj) { id title status priority due_date }
+      }`,
+      {
+        obj: {
+          title,
+          description:     description || null,
+          priority:        priority || 'medium',
+          status:          status || 'open',
+          intern_id:       intern_ids[0] || null, // backward compat
+          assigned_by:     realUserId, // ← real DB id, not token id
+          department_id,
+          due_date:        due_date || null,
+          start_date:      start_date || new Date().toISOString().split('T')[0],
+          estimated_hours: estimated_hours || null,
+          tags:            tags?.length ? tags : null,
+          notes:           notes || null,
+        },
       },
-    }, HASURA_ADMIN);
+    );
 
-    const taskId = taskResult.data.insert_tasks_one.id;
+    const taskId = taskData.insert_tasks_one.id;
 
-    // Insert task_interns relationships for all interns
-    const taskInternsInserts = intern_ids.map((internId: string) => ({
-      task_id: taskId,
-      intern_id: internId,
-    }));
+    // ── Link all interns via task_interns ───────────────────────────────────
+    await hasura(
+      `mutation InsertTaskInterns($objects: [task_interns_insert_input!]!) {
+        insert_task_interns(objects: $objects) { affected_rows }
+      }`,
+      { objects: intern_ids.map((internId: string) => ({ task_id: taskId, intern_id: internId })) },
+    );
 
-    const insertTaskInternsMutation = `
-      mutation InsertTaskInterns($objects: [task_interns_insert_input!]!) {
-        insert_task_interns(objects: $objects) {
-          affected_rows
-        }
-      }
-    `;
-
-    await executeGraphQL(insertTaskInternsMutation, {
-      objects: taskInternsInserts,
-    }, HASURA_ADMIN);
-
-    return NextResponse.json({ success: true, task: taskResult.data.insert_tasks_one });
-  } catch (error) {
-    console.error('Task creation error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json({ success: true, task: taskData.insert_tasks_one });
+  } catch (err) {
+    console.error('[api/tasks/create]', err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

@@ -17,19 +17,18 @@ export function extractToken(request: NextRequest): string | null {
   return authHeader?.replace('Bearer ', '') || null;
 }
 
-// ✅ FIXED: use verify() instead of decode()
 export function decodeToken(token: string): DecodedToken | null {
   try {
     return jwt.verify(token, JWT_SECRET) as DecodedToken;
-  } catch (err) {
-    return null; // expired, tampered, or invalid
+  } catch {
+    return null;
   }
 }
 
 export function getUserFromToken(decoded: DecodedToken) {
   return {
-    userId: decoded['https://hasura.io/jwt/claims']['x-hasura-user-id'],
-    role: decoded['https://hasura.io/jwt/claims']['x-hasura-role'],
+    userId:       decoded['https://hasura.io/jwt/claims']['x-hasura-user-id'],
+    role:         decoded['https://hasura.io/jwt/claims']['x-hasura-role'],
     departmentId: decoded['https://hasura.io/jwt/claims']['x-hasura-department-id'],
   };
 }
@@ -47,8 +46,10 @@ export function checkAuth(request: NextRequest): {
     };
   }
 
-  const JWT_SECRET = process.env.JWT_SECRET || 'intern-mgmt-jwt-secret-change-in-prod';
-  const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
+  // ✅ FIX: use decodeToken() which wraps verify() in try/catch and returns
+  //         null on failure — instead of calling jwt.verify() raw which throws
+  //         and leaves `decoded` as the DecodedToken type but never null-checked.
+  const decoded = decodeToken(token);
   if (!decoded) {
     return {
       success: false,

@@ -1,98 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
-interface DecodedToken {
-  sub: string;
-  'https://hasura.io/jwt/claims': {
-    'x-hasura-user-id': string;
-    'x-hasura-role': string;
-    'x-hasura-department-id'?: string;
-  };
-}
+const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
+const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
 
-async function executeGraphQL(query: string, variables: any, adminSecret: string) {
-  const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-  const response = await fetch(`${HASURA_ENDPOINT}`, {
+async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
+  const res = await fetch(HASURA_ENDPOINT, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Hasura-Admin-Secret': adminSecret,
-    },
+    headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': HASURA_ADMIN },
     body: JSON.stringify({ query, variables }),
   });
-
-  const data = await response.json();
-  if (data.errors) {
-    throw new Error(data.errors[0].message);
-  }
-  return data;
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors[0]?.message ?? 'Hasura error');
+  return json.data as T;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.replace('Bearer ', '');
+    // ── Auth ────────────────────────────────────────────────────────────────
+    const authCheck = checkAuth(req);
+    if (!authCheck.success || !authCheck.decoded) return authCheck.response!;
+    const { userId, role, departmentId } = getUserFromToken(authCheck.decoded);
 
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { id } = await req.json();
+    if (!id) return NextResponse.json({ error: 'Task ID required' }, { status: 400 });
 
-    const JWT_SECRET = process.env.JWT_SECRET || 'intern-mgmt-jwt-secret-change-in-prod';
-    const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
-    const userRole = decoded['https://hasura.io/jwt/claims']['x-hasura-role'];
-    const departmentId = decoded['https://hasura.io/jwt/claims']['x-hasura-department-id'];
+    // ── Fetch task ──────────────────────────────────────────────────────────
+    const taskData = await hasura<{ tasks_by_pk: { id: string; department_id: string } | null }>(
+      `query GetTask($id: uuid!) { tasks_by_pk(id: $id) { id department_id } }`,
+      { id },
+    );
+    const task = taskData.tasks_by_pk;
+    if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
 
-    const { id } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: 'Task ID required' }, { status: 400 });
-    }
-
-    // Get task to check permissions
-    const getQuery = `
-      query GetTask($id: uuid!) {
-        tasks_by_pk(id: $id) {
-          id
-          department_id
-        }
-      }
-    `;
-
-    const taskResult = await executeGraphQL(getQuery, { id }, process.env.HASURA_ADMIN_SECRET!);
-    const task = taskResult.data.tasks_by_pk;
-
-    if (!task) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
-    }
-
-    // Permission check: Only admin and dept person can delete
-    if (userRole === 'admin') {
-      // Admin can delete any task
-    } else if (userRole === 'department_person') {
-      // Dept person can only delete their department tasks
+    // ── Permission check ────────────────────────────────────────────────────
+    if (role === 'admin') {
+      // full access
+    } else if (role === 'department_person') {
       if (task.department_id !== departmentId) {
+        logPermissionDenial(userId, role, 'delete_task_other_dept');
         return NextResponse.json({ error: 'Cannot delete tasks in other departments' }, { status: 403 });
       }
     } else {
-      // Interns cannot delete tasks
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+      logPermissionDenial(userId, role, 'delete_task');
+      return NextResponse.json({ error: 'Interns cannot delete tasks' }, { status: 403 });
     }
 
-    const mutation = `
-      mutation DeleteTask($id: uuid!) {
-        delete_tasks_by_pk(id: $id) {
-          id
-          title
-        }
-      }
-    `;
-
-    await executeGraphQL(mutation, { id }, process.env.HASURA_ADMIN_SECRET!);
+    // ── Delete (task_interns cascade via FK) ────────────────────────────────
+    await hasura(
+      `mutation DeleteTask($id: uuid!) {
+        delete_tasks_by_pk(id: $id) { id title }
+      }`,
+      { id },
+    );
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Task deletion error:', error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+  } catch (err) {
+    console.error('[api/tasks/delete]', err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
