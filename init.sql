@@ -138,76 +138,6 @@ CREATE TABLE IF NOT EXISTS interns (
 );
 
 
--- ── 4. TASKS ──────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS tasks (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  
-  -- Basic Info
-  title           TEXT        NOT NULL,
-  description     TEXT,
-  priority        TEXT        NOT NULL DEFAULT 'medium'
-                                      CHECK (priority IN ('low','medium','high','critical')),
-  status          TEXT        NOT NULL DEFAULT 'open'
-                                      CHECK (status IN ('open','in_progress','completed','on_hold','cancelled')),
-  
-  -- Assignment (intern_id kept for backward compatibility, can be NULL)
-  intern_id       UUID        REFERENCES interns(id) ON DELETE SET NULL,
-  assigned_by     UUID        NOT NULL REFERENCES users(id),
-  assigned_to     UUID        REFERENCES users(id),
-  
-  -- Dates
-  due_date        DATE,
-  start_date      DATE        DEFAULT CURRENT_DATE,
-  completed_date  DATE,
-  
-  -- Tracking
-  estimated_hours NUMERIC(6,2),
-  
-  -- Relations
-  department_id   UUID        NOT NULL REFERENCES departments(id),
-  parent_task_id  UUID        REFERENCES tasks(id),
-  
-  -- Metadata
-  tags            TEXT[],
-  attachment_url  TEXT,
-  notes           TEXT,
-  
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ── 4.1 TASK_INTERNS (Junction table for many-to-many relationship) ──────────
-CREATE TABLE IF NOT EXISTS task_interns (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id       UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  intern_id     UUID        NOT NULL REFERENCES interns(id) ON DELETE CASCADE,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW(),
-  
-  UNIQUE(task_id, intern_id)
-);
-
--- ── 5. TASK COMMENTS ──────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS task_comments (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id     UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id     UUID        NOT NULL REFERENCES users(id),
-  comment     TEXT        NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ── 6. TASK ACTIVITY LOG ──────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS task_activity_log (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id     UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id     UUID        NOT NULL REFERENCES users(id),
-  action      TEXT        NOT NULL,
-  old_value   TEXT,
-  new_value   TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
 -- ── TRIGGERS: auto-update updated_at ─────────────────────────────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -223,32 +153,10 @@ CREATE OR REPLACE TRIGGER users_updated_at
 CREATE OR REPLACE TRIGGER interns_updated_at
   BEFORE UPDATE ON interns FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-CREATE OR REPLACE TRIGGER tasks_updated_at
-  BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE OR REPLACE TRIGGER task_comments_updated_at
-  BEFORE UPDATE ON task_comments FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
-CREATE OR REPLACE TRIGGER task_interns_updated_at
-  BEFORE UPDATE ON task_interns FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
 -- ── INDEXES ───────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_interns_department ON interns(department_id);
 CREATE INDEX IF NOT EXISTS idx_interns_status     ON interns(status);
 CREATE INDEX IF NOT EXISTS idx_interns_mentor     ON interns(mentor_id);
 CREATE INDEX IF NOT EXISTS idx_interns_email      ON interns(email);
-
--- Task indexes
-CREATE INDEX IF NOT EXISTS idx_tasks_intern       ON tasks(intern_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_status       ON tasks(status);
-CREATE INDEX IF NOT EXISTS idx_tasks_department   ON tasks(department_id);
-CREATE INDEX IF NOT EXISTS idx_tasks_due_date     ON tasks(due_date);
-CREATE INDEX IF NOT EXISTS idx_tasks_assigned_by  ON tasks(assigned_by);
-
--- Task interns indexes
-CREATE INDEX IF NOT EXISTS idx_task_interns_task   ON task_interns(task_id);
-CREATE INDEX IF NOT EXISTS idx_task_interns_intern ON task_interns(intern_id);
-
--- Task comments & activity indexes
-CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id);
-CREATE INDEX IF NOT EXISTS idx_task_activity_task ON task_activity_log(task_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_intern  ON attendance(intern_id, date);
+CREATE INDEX IF NOT EXISTS idx_reviews_intern     ON performance_reviews(intern_id);
