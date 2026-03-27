@@ -75,55 +75,6 @@ async function fetchUserFromHasura(email: string) {
     }
 }
 
-// ── Helper: Upsert user into database ────────────────────────────────────────
-async function upsertUserInDatabase(user: { id: string; name: string; email: string; role: string; department_id: string | null }) {
-    if (!HASURA_ADMIN) return;
-    try {
-        const res = await fetch(HASURA_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-hasura-admin-secret': HASURA_ADMIN,
-            },
-            body: JSON.stringify({
-                query: `
-                    mutation UpsertUser($id: uuid!, $name: String!, $email: citext!, $role: String!, $department_id: uuid) {
-                        insert_users_one(
-                            object: { 
-                                id: $id
-                                name: $name
-                                email: $email
-                                role: $role
-                                department_id: $department_id
-                            }
-                            on_conflict: { 
-                                constraint: users_pkey
-                                update_columns: [name, role, department_id]
-                            }
-                        ) {
-                            id
-                        }
-                    }
-                `,
-                variables: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    department_id: user.department_id,
-                },
-            }),
-        });
-        
-        const json = await res.json();
-        if (json.errors) {
-            console.error('Upsert user error:', json.errors);
-        }
-    } catch (err) {
-        console.error('Failed to upsert user:', err);
-    }
-}
-
 export async function POST(req: NextRequest) {
     try {
         const { email, password } = await req.json();
@@ -174,15 +125,6 @@ export async function POST(req: NextRequest) {
                     department_id: demo.department_id,
                     department_name: demo.department_name,
                 };
-                console.log('[auth/login] Upserting demo user:', demo.email);
-                // Upsert demo user into database
-                await upsertUserInDatabase({
-                    id: demo.id,
-                    name: demo.name,
-                    email: demo.email,
-                    role: demo.role,
-                    department_id: demo.department_id,
-                });
             }
         }
 
@@ -204,8 +146,7 @@ export async function POST(req: NextRequest) {
                     'x-hasura-allowed-roles': [authenticated.role],
                     'x-hasura-default-role': authenticated.role,
                     'x-hasura-user-id': authenticated.id,
-                    'x-hasura-role': authenticated.role,
-                    'x-hasura-department-id': authenticated.department_id ?? '',
+                    'x-hasura-dept-id': authenticated.department_id ?? '',
                 },
             },
             JWT_SECRET,
