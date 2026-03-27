@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     // 1. Check for duplicate
     type UserCheck = { users: { id: string }[] };
     const existing = await hasura<UserCheck>(
-      `query CheckEmail($email: String!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }`,
+      `query CheckEmail($email: citext!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }`,
       { email: safeEmail },
     );
     if (existing.users.length > 0) {

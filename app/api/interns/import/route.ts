@@ -25,6 +25,29 @@ function normKey(k: string) {
   return k.toLowerCase().replace(/[\s_-]+/g, '_');
 }
 
+const DEPT_ALIASES: Record<string, string> = {
+  'ai':     'artificial intelligence',
+  'php':    'php development',
+  '.net':   '.net development',
+  'dotnet': '.net development',
+  'mobile': 'mobile development',
+  'odoo':   'odoo',
+  'erp':    'odoo',
+  'rpa':    'robotic process automation',
+  'sap':    'sap consulting',
+  'qc':     'quality control',
+  'qa':     'quality',
+};
+
+function findDepartment(departments: Department[], input: string): Department | undefined {
+  const lower = input.trim().toLowerCase();
+  const exact = departments.find((d) => d.name.toLowerCase() === lower);
+  if (exact) return exact;
+  const alias = DEPT_ALIASES[lower];
+  if (alias) return departments.find((d) => d.name.toLowerCase().includes(alias));
+  return departments.find((d) => d.name.toLowerCase().includes(lower) || lower.includes(d.name.toLowerCase()));
+}
+
 function parseExcelDate(val: unknown): string | null {
   if (!val && val !== 0) return null;
   if (typeof val === 'number') {
@@ -119,14 +142,55 @@ export async function POST(req: NextRequest) {
       const email = (row['email'] || '').toLowerCase();
       const phone = row['phone'] || '';
       const college = row['college'] || '';
+      const degree = row['degree'] || '';
+      const branch = row['branch'] || '';
       const deptName = row['department'] || row['department_name'] || '';
       const startDate = parseExcelDate(raw['Start Date'] ?? raw['start_date'] ?? raw['start date'] ?? '');
       const endDate = parseExcelDate(raw['End Date'] ?? raw['end_date'] ?? raw['end date'] ?? '') ?? undefined;
       const status = (row['status'] || 'active').toLowerCase();
       const finalStatus = ['active', 'completed', 'terminated'].includes(status) ? status : 'active';
 
-      if (!name || !email || !college) {
-        results.push({ row: rowNum, status: 'error', name, email, message: 'Missing required fields: Name, Email, College' });
+      // Optional fields
+      const alternatePhone    = row['alternate_phone'] || null;
+      const dateOfBirth       = parseExcelDate(raw['Date of Birth'] ?? raw['date_of_birth'] ?? '') ?? null;
+      const gender            = row['gender'] || null;
+      const bloodGroup        = row['blood_group'] || null;
+      const nationality       = row['nationality'] || null;
+      const addressLine1      = row['address_line1'] || null;
+      const addressLine2      = row['address_line2'] || null;
+      const city              = row['city'] || null;
+      const state             = row['state'] || null;
+      const pincode           = row['pincode'] || null;
+      const country           = row['country'] || null;
+      const university        = row['university'] || null;
+      const specialization    = row['specialization'] || null;
+      const graduationYear    = row['graduation_year'] ? parseInt(row['graduation_year']) : null;
+      const currentYear       = row['current_year'] ? parseInt(row['current_year']) : null;
+      const cgpa              = row['cgpa'] ? parseFloat(row['cgpa']) : null;
+      const percentage        = row['percentage'] ? parseFloat(row['percentage']) : null;
+      const studentId         = row['student_id'] || null;
+      const collegeEmail      = row['college_email'] || null;
+      const collegeCity       = row['college_city'] || null;
+      const collegeState      = row['college_state'] || null;
+      const workMode          = (['onsite','remote','hybrid'].includes(row['work_mode'] || '')) ? row['work_mode'] : null;
+      const stipend           = row['stipend'] ? parseFloat(row['stipend']) : null;
+      const durationMonths    = row['duration_months'] ? parseInt(row['duration_months']) : null;
+      const offerLetterDate   = parseExcelDate(raw['Offer Letter Date'] ?? raw['offer_letter_date'] ?? '') ?? null;
+      const joiningLetterDate = parseExcelDate(raw['Joining Letter Date'] ?? raw['joining_letter_date'] ?? '') ?? null;
+      const skills            = row['skills'] ? row['skills'].split(',').map((s: string) => s.trim()).filter(Boolean) : null;
+      const languagesKnown    = row['languages_known'] ? row['languages_known'].split(',').map((s: string) => s.trim()).filter(Boolean) : null;
+      const tools             = row['tools'] ? row['tools'].split(',').map((s: string) => s.trim()).filter(Boolean) : null;
+      const linkedinUrl       = row['linkedin_url'] || null;
+      const githubUrl         = row['github_url'] || null;
+      const portfolioUrl      = row['portfolio_url'] || null;
+      const aadharNumber      = row['aadhar_number'] || null;
+      const panNumber         = row['pan_number'] || null;
+      const referenceName     = row['reference_name'] || null;
+      const referenceContact  = row['reference_contact'] || null;
+      const notes             = row['notes'] || null;
+
+      if (!name || !email || !college || !degree || !branch) {
+        results.push({ row: rowNum, status: 'error', name, email, message: 'Missing required fields: Name, Email, College, Degree, Branch' });
         continue;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -134,7 +198,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const dept = departments.find((d) => d.name.toLowerCase() === deptName.toLowerCase());
+      const dept = findDepartment(departments, deptName);
       if (!dept) {
         results.push({
           row: rowNum, status: 'error', name, email,
@@ -152,7 +216,7 @@ export async function POST(req: NextRequest) {
         // Check duplicate
         type UserCheck = { users: { id: string }[] };
         const existing = await hasura<UserCheck>(
-          `query CheckEmail($email: String!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }`,
+          `query CheckEmail($email: citext!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }`,
           { email },
         );
         if (existing.users.length > 0) {
@@ -178,11 +242,36 @@ export async function POST(req: NextRequest) {
             obj: {
               name, email,
               phone: phone || null,
-              college,
+              alternate_phone: alternatePhone,
+              date_of_birth: dateOfBirth,
+              gender, blood_group: bloodGroup,
+              nationality,
+              address_line1: addressLine1, address_line2: addressLine2,
+              city, state, pincode, country,
+              college, university,
+              degree, branch, specialization,
+              graduation_year: graduationYear, current_year: currentYear,
+              cgpa, percentage,
+              student_id: studentId,
+              college_email: collegeEmail,
+              college_city: collegeCity, college_state: collegeState,
               department_id: dept.id,
               start_date: startDate,
               end_date: endDate || null,
               status: finalStatus,
+              work_mode: workMode,
+              stipend, duration_months: durationMonths,
+              offer_letter_date: offerLetterDate,
+              joining_letter_date: joiningLetterDate,
+              skills, languages_known: languagesKnown, tools,
+              linkedin_url: linkedinUrl,
+              github_url: githubUrl,
+              portfolio_url: portfolioUrl,
+              aadhar_number: aadharNumber,
+              pan_number: panNumber,
+              reference_name: referenceName,
+              reference_contact: referenceContact,
+              notes,
               user_id: userId,
             },
           },
