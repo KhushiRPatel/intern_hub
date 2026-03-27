@@ -16,7 +16,7 @@ import { DeleteModal } from './DeleteModal';
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
 export function InternsView() {
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const { setCurrentView } = useNavigation();
 
     const [search, setSearch] = useState('');
@@ -131,10 +131,7 @@ export function InternsView() {
                 if (editTarget) {
                     const res = await fetch('/api/interns/update', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             id: editTarget.id,
                             name: values.name.trim(),
@@ -161,10 +158,7 @@ export function InternsView() {
                     // Use API route to create intern AND user
                     const res = await fetch('/api/interns/create', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,  // ← ADD
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             name: values.name.trim(),
                             email: values.email.trim().toLowerCase(),
@@ -207,10 +201,7 @@ export function InternsView() {
             } else {
                 const res = await fetch('/api/interns/delete', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,  // ← ADD
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: deleteTarget.id }),
                 });
 

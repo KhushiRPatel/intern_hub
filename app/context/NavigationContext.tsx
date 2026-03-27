@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useState } from 'react';
 
-export type PageView = 'dashboard' | 'interns' | 'add-intern' | 'add-dept-person' | 'tasks';
+export type PageView = 'dashboard' | 'interns' | 'add-intern' | 'add-dept-person';
 
 interface NavigationContextType {
     currentView: PageView;
