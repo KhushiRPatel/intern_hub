@@ -29,7 +29,7 @@ export async function GET() {
 
   const example1 = [
     'Alice Johnson', 'alice@example.com', '+91 9876543210', 'IIT Mumbai', 'B.Tech', 'Computer Science', 'Artificial Intelligence', '2025-01-15',
-    '+91 9876543211', '2002-05-10', 'Female', 'B+', 'Indian',
+    '+91 9876543211', '2002-05-10', 'female', 'B+', 'Indian',
     '101 Main Street', 'Near Park', 'Mumbai', 'Maharashtra', '400001', 'India',
     'University of Mumbai', 'Machine Learning', '2025', '3',
     '8.5', '', 'STU001', 'alice@iit.ac.in', 'Mumbai', 'Maharashtra',
@@ -44,7 +44,7 @@ export async function GET() {
 
   const example2 = [
     'Bob Kumar', 'bob@college.edu', '+91 8888888888', 'NIT Delhi', 'MCA', 'Information Technology', 'PHP Development', '2025-02-01',
-    '', '2001-11-20', 'Male', 'O+', 'Indian',
+    '', '2001-11-20', 'male', 'O+', 'Indian',
     '', '', 'Delhi', 'Delhi', '110001', 'India',
     'NIT Delhi', '', '2026', '2',
     '', '75', 'STU002', '', 'Delhi', 'Delhi',
@@ -63,7 +63,9 @@ export async function GET() {
     ['Required columns: Name, Email, Phone, College, Degree, Branch, Department, Start Date'],
     ['All other columns are OPTIONAL — leave blank if not applicable'],
     ['Department — use exact name OR short alias: AI, PHP, .NET, SAP, RPA, QC, MOBILE, ODOO'],
-    ['Status options: active, completed, terminated  (default: active)'],
+    ['Status options: active, selected, applied, completed, terminated, on_leave  (default: active)'],
+    ['Gender options: male, female, other, prefer_not_to_say  (must be lowercase)'],
+    ['Blood Group options: A+, A-, B+, B-, AB+, AB-, O+, O-  (uppercase)'],
     ['Work Mode options: onsite, remote, hybrid  (default: onsite)'],
     ['Date format: YYYY-MM-DD  e.g. 2025-01-15'],
     ['Skills / Languages / Tools: comma-separated  e.g. Python, Java, SQL'],

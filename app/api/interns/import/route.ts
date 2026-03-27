@@ -167,13 +167,27 @@ export async function POST(req: NextRequest) {
       const startDate = parseExcelDate(raw['Start Date'] ?? raw['start_date'] ?? raw['start date'] ?? '');
       const endDate   = parseExcelDate(raw['End Date'] ?? raw['end_date'] ?? raw['end date'] ?? '') ?? undefined;
       const rawStatus = (row['status'] || 'active').toLowerCase();
-      const finalStatus = ['active', 'completed', 'terminated'].includes(rawStatus) ? rawStatus : 'active';
+      const VALID_STATUSES = ['applied','selected','active','completed','terminated','on_leave'];
+      const finalStatus = VALID_STATUSES.includes(rawStatus) ? rawStatus : 'active';
 
       // ── Optional personal fields ──────────────────────────────────────────
       const alternatePhone    = row['alternate_phone'] || null;
       const dateOfBirth       = parseExcelDate(raw['Date of Birth'] ?? raw['date_of_birth'] ?? '') ?? null;
-      const gender            = row['gender'] || null;
-      const bloodGroup        = row['blood_group'] || null;
+
+      // gender: DB requires lowercase ('male','female','other','prefer_not_to_say')
+      const rawGender = (row['gender'] || '').toLowerCase().trim();
+      const GENDER_MAP: Record<string, string> = {
+        'm': 'male', 'male': 'male',
+        'f': 'female', 'female': 'female',
+        'o': 'other', 'other': 'other',
+        'prefer_not_to_say': 'prefer_not_to_say', 'prefer not to say': 'prefer_not_to_say',
+      };
+      const gender = rawGender ? (GENDER_MAP[rawGender] ?? null) : null;
+
+      // blood_group: DB requires uppercase ('A+','A-','B+','B-','AB+','AB-','O+','O-')
+      const rawBG = (row['blood_group'] || '').toUpperCase().replace(/\s/g, '');
+      const VALID_BG = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+      const bloodGroup = VALID_BG.includes(rawBG) ? rawBG : null;
       const nationality       = row['nationality'] || null;
       const addressLine1      = row['address_line1'] || null;
       const addressLine2      = row['address_line2'] || null;
