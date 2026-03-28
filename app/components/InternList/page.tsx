@@ -6,6 +6,7 @@ import { Spinner } from '@/app/components/ui/Spinner';
 
 interface Props {
   interns?: InternData[];
+  departments?: { id: string; name: string }[];
   loading?: boolean;
   error?: string;
   userRole?: UserRole;
@@ -21,6 +22,7 @@ function fmt(date: string) {
 
 export default function InternTable({
   interns = [],
+  departments = [],
   loading = false,
   error,
   userRole = 'intern',
@@ -116,7 +118,7 @@ export default function InternTable({
 
               {/* Department */}
               <td className="px-4 py-3.5">
-                <DeptBadge name={intern.department?.name ?? '—'} />
+                <DeptBadge name={departments.find(d => d.id === intern.department_id)?.name ?? '—'} />
               </td>
 
               {/* Duration */}

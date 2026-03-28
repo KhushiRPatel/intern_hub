@@ -163,7 +163,7 @@ export default function InternsPage() {
     if (user?.role === 'intern')            where.user_id       = { _eq: user.id };
     if (user?.role === 'department_person') where.department_id = { _eq: user.department_id };
     if (search)  where.name       = { _ilike: `%${search}%` };
-    if (dept)    where.department = { name: { _eq: dept } };
+    if (dept) where.department_id = { _eq: dept };
     if (college) where.college    = { _ilike: `%${college}%` };
     if (status)  where.status     = { _eq: status };
     return where;
@@ -333,6 +333,7 @@ export default function InternsPage() {
       <div className="bg-white dark:bg-[#1e1c2f] rounded-2xl border border-slate-100 dark:border-[#2d2a45] shadow-sm overflow-hidden">
         <InternTable
           interns={interns} loading={loading} error={errorMsg}
+          departments={depts}
           userRole={user?.role ?? 'intern'}
           onEdit={handleEdit}
           onDelete={(id, name) => setDeleteTarget({ id, name })}
