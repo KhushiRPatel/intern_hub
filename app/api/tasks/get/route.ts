@@ -65,7 +65,6 @@ export async function GET(req: NextRequest) {
         task_id: string;
         intern_id: string;
         intern_status: string;
-        intern: { id: string; name: string; email: string };
       }[]
     }>(
       `query GetTaskInterns($task_ids: [uuid!]!) {
@@ -73,11 +72,26 @@ export async function GET(req: NextRequest) {
           task_id
           intern_id
           intern_status
-          intern { id name email }
         }
       }`,
       { task_ids },
     );
+
+    // ── Fetch interns separately since relationship isn't configured ─────────
+    const all_intern_ids = [...new Set(tiData.task_interns.map(ti => ti.intern_id))];
+    let fetchedInterns: { id: string; name: string; email: string }[] = [];
+    if (all_intern_ids.length > 0) {
+      const internsData = await hasura<{ interns: { id: string; name: string; email: string }[] }>(
+        `query GetInterns($ids: [uuid!]!) {
+          interns(where: { id: { _in: $ids } }) {
+            id name email
+          }
+        }`,
+        { ids: all_intern_ids }
+      );
+      fetchedInterns = internsData?.interns || [];
+    }
+    const internDataMap = new Map(fetchedInterns.map(i => [i.id, i]));
 
     // Map: task_id → { ids, statuses, interns }
     const tiMap = new Map<string, {
@@ -91,7 +105,10 @@ export async function GET(req: NextRequest) {
       const entry = tiMap.get(ti.task_id)!;
       entry.ids.push(ti.intern_id);
       entry.statuses[ti.intern_id] = ti.intern_status;
-      entry.interns.push(ti.intern);
+      const cachedIntern = internDataMap.get(ti.intern_id);
+      if (cachedIntern) {
+        entry.interns.push(cachedIntern);
+      }
     }
 
     // Resolve current intern's id for my_intern_status
