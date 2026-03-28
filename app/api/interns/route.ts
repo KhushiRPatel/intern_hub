@@ -17,7 +17,7 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
 
 const INTERN_FIELDS = `
   id name email phone college degree branch
-  department_id department { id name }
+  department_id
   start_date end_date status user_id created_at
 `;
 

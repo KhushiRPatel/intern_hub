@@ -101,12 +101,11 @@ export async function POST(req: NextRequest) {
     type InsertInternResult = {
       insert_interns_one: {
         id: string; name: string; email: string; status: string;
-        department: { id: string; name: string } | null;
       };
     };
     const { insert_interns_one } = await hasura<InsertInternResult>(
       `mutation CreateIntern($obj: interns_insert_input!) {
-        insert_interns_one(object: $obj) { id name email status department { id name } }
+        insert_interns_one(object: $obj) { id name email status }
       }`,
       {
         obj: {

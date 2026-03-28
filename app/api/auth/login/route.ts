@@ -53,17 +53,18 @@ async function upsertUser(u: {
   await hasura(
     `mutation UpsertUser(
       $id: uuid!, $name: String!, $email: citext!,
-      $role: String!, $department_id: uuid
+      $role: String!, $department_id: uuid,
+      $password_hash: String!
     ) {
       insert_users_one(
-        object: { id: $id, name: $name, email: $email, role: $role, department_id: $department_id }
+        object: { id: $id, name: $name, email: $email, role: $role, department_id: $department_id, password_hash: $password_hash }
         on_conflict: {
           constraint: users_pkey
           update_columns: [name, role, department_id]
         }
       ) { id }
     }`,
-    { id: u.id, name: u.name, email: u.email, role: u.role, department_id: u.department_id },
+    { id: u.id, name: u.name, email: u.email, role: u.role, department_id: u.department_id, password_hash: 'demo-user-no-hash' },
   );
 }
 
