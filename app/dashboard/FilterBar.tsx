@@ -39,11 +39,11 @@ export function FilterBar({
                 {showDeptFilter && (
                     <select
                         value={dept}
-                        onChange={(e) => setDept(e.target.value)}
+                        onChange={e => setDept(e.target.value)}
                         className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-700"
                     >
                         <option value="">All Departments</option>
-                        {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                 )}
 

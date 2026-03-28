@@ -18,13 +18,14 @@ const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 /* ── Filter bar ─────────────────────────────────────────────────────────────── */
 function FilterBar({
   search, setSearch, dept, setDept, college, setCollege,
-  status, setStatus, onClear, colleges, showDeptFilter,
+  status, setStatus, onClear, colleges, showDeptFilter, depts,
 }: {
   search: string; setSearch: (v: string) => void;
   dept: string; setDept: (v: string) => void;
   college: string; setCollege: (v: string) => void;
   status: string; setStatus: (v: string) => void;
   onClear: () => void; colleges: string[]; showDeptFilter: boolean;
+  depts: { id: string; name: string }[];
 }) {
   const hasFilter = search || dept || college || status;
   return (
@@ -42,7 +43,7 @@ function FilterBar({
         {showDeptFilter && (
           <Select value={dept} onChange={e => setDept(e.target.value)}>
             <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
         )}
         <Select value={college} onChange={e => setCollege(e.target.value)}>
@@ -60,10 +61,10 @@ function FilterBar({
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-slate-400 dark:text-slate-600">Active filters:</span>
           {[
-            search  && `Name: "${search}"`,
-            dept    && `Dept: ${dept}`,
+            search && `Name: "${search}"`,
+            dept && `Dept: ${depts.find(d => d.id === dept)?.name ?? dept}`,
             college && `College: "${college}"`,
-            status  && `Status: ${status}`,
+            status && `Status: ${status}`,
           ].filter(Boolean).map(tag => (
             <span key={tag as string} className="inline-flex items-center bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-xs font-medium px-2.5 py-0.5 rounded-full">
               {tag}
@@ -125,17 +126,17 @@ function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
 export default function InternsPage() {
   const { user, token } = useAuth(); // ← token added
 
-  const [search,  setSearch]  = useState('');
-  const [dept,    setDept]    = useState('');
+  const [search, setSearch] = useState('');
+  const [dept, setDept] = useState('');
   const [college, setCollege] = useState('');
-  const [status,  setStatus]  = useState('');
+  const [status, setStatus] = useState('');
 
-  const [showForm,     setShowForm]     = useState(false);
-  const [showImport,   setShowImport]   = useState(false);
-  const [editTarget,   setEditTarget]   = useState<InternData | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [editTarget, setEditTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [formBusy,     setFormBusy]     = useState(false);
-  const [deleteBusy,   setDeleteBusy]   = useState(false);
+  const [formBusy, setFormBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
@@ -155,17 +156,17 @@ export default function InternsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, dept, college, status, user, demoRefresh]);
   const demoColleges = useMemo(() => IS_DEMO ? demoStore.getColleges() : [], [demoRefresh]); // eslint-disable-line
-  const demoDepts    = useMemo(() => IS_DEMO ? demoStore.getDepartments() : [], []);
+  const demoDepts = useMemo(() => IS_DEMO ? demoStore.getDepartments() : [], []);
 
   /* ── GraphQL ── */
   const buildWhere = () => {
     const where: Record<string, unknown> = {};
-    if (user?.role === 'intern')            where.user_id       = { _eq: user.id };
+    if (user?.role === 'intern') where.user_id = { _eq: user.id };
     if (user?.role === 'department_person') where.department_id = { _eq: user.department_id };
-    if (search)  where.name       = { _ilike: `%${search}%` };
+    if (search) where.name = { _ilike: `%${search}%` };
     if (dept) where.department_id = { _eq: dept };
-    if (college) where.college    = { _ilike: `%${college}%` };
-    if (status)  where.status     = { _eq: status };
+    if (college) where.college = { _ilike: `%${college}%` };
+    if (status) where.status = { _eq: status };
     return where;
   };
 
@@ -173,21 +174,21 @@ export default function InternsPage() {
     variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
     skip: IS_DEMO,
   });
-  const { data: deptData }    = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
-  const { data: collegeData } = useQuery(GET_COLLEGES,    { skip: IS_DEMO });
+  const { data: deptData } = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
+  const { data: collegeData } = useQuery(GET_COLLEGES, { skip: IS_DEMO });
 
   const [updateMutation] = useMutation(UPDATE_INTERN, { onCompleted: () => refetch() });
   const [deleteMutation] = useMutation(DELETE_INTERN, { onCompleted: () => refetch() });
 
-  const gql  = gqlData    as any; // eslint-disable-line
+  const gql = gqlData as any; // eslint-disable-line
   const cols = collegeData as any; // eslint-disable-line
-  const dep  = deptData    as any; // eslint-disable-line
+  const dep = deptData as any; // eslint-disable-line
 
-  const interns  = IS_DEMO ? demoInterns  : (gql?.interns ?? []) as InternData[];
+  const interns = IS_DEMO ? demoInterns : (gql?.interns ?? []) as InternData[];
   const colleges = IS_DEMO ? demoColleges : (cols?.interns?.map((i: { college: string }) => i.college) ?? []) as string[];
-  const depts    = IS_DEMO ? demoDepts    : (dep?.departments ?? []);
-  const loading  = IS_DEMO ? false        : gqlLoading;
-  const errorMsg = IS_DEMO ? undefined    : gqlError?.message;
+  const depts = IS_DEMO ? demoDepts : (dep?.departments ?? []);
+  const loading = IS_DEMO ? false : gqlLoading;
+  const errorMsg = IS_DEMO ? undefined : gqlError?.message;
 
   /* ── Handlers ── */
   const handleEdit = (intern: InternData) => { setEditTarget(intern); setShowForm(true); };
@@ -267,7 +268,7 @@ export default function InternsPage() {
     setDeleteBusy(true);
     try {
       if (IS_DEMO) { demoStore.delete(deleteTarget.id); setDemoRefresh(n => n + 1); }
-      else         { await deleteMutation({ variables: { id: deleteTarget.id } }); }
+      else { await deleteMutation({ variables: { id: deleteTarget.id } }); }
       showToast(`${deleteTarget.name} deleted`);
       setDeleteTarget(null);
     } catch {
@@ -279,7 +280,7 @@ export default function InternsPage() {
 
   const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
 
-  const isAdmin  = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin';
   const showDept = user?.role !== 'intern';
 
   return (
@@ -327,6 +328,7 @@ export default function InternsPage() {
         college={college} setCollege={setCollege}
         status={status} setStatus={setStatus}
         onClear={clearFilters} colleges={colleges} showDeptFilter={showDept}
+        depts={depts}
       />
 
       {/* ── Table ── */}
