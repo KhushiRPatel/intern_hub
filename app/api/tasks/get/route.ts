@@ -17,16 +17,10 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
 
 export async function GET(req: NextRequest) {
   try {
-    // ── Auth ────────────────────────────────────────────────────────────────
     const authCheck = checkAuth(req);
     if (!authCheck.success || !authCheck.decoded) return authCheck.response!;
     const { userId, role, departmentId } = getUserFromToken(authCheck.decoded);
 
-    // ── Build where clause by role ──────────────────────────────────────────
-    // Admin  → all tasks
-    // Dept   → tasks in their department
-    // Intern → tasks assigned to them via task_interns (matched by intern_id,
-    //          NOT user_id — the two are different UUIDs)
     let where: Record<string, unknown> = {};
 
     if (role === 'admin') {
@@ -34,9 +28,6 @@ export async function GET(req: NextRequest) {
     } else if (role === 'department_person') {
       where = { department_id: { _eq: departmentId } };
     } else if (role === 'intern') {
-      // FIX: use intern_id from UserData, not userId (which is the users.id)
-      // The token carries x-hasura-user-id = users.id, but task_interns stores
-      // interns.id. We resolve the intern record first.
       const internLookup = await hasura<{ interns: { id: string }[] }>(
         `query GetInternId($user_id: uuid!) {
           interns(where: { user_id: { _eq: $user_id } }, limit: 1) { id }
@@ -48,37 +39,62 @@ export async function GET(req: NextRequest) {
       where = { task_interns: { intern_id: { _eq: internId } } };
     }
 
-    // ── Fetch tasks ─────────────────────────────────────────────────────────
+    // ── Fetch tasks ──────────────────────────────────────────────────────────
     const tasksData = await hasura<{ tasks: Record<string, unknown>[] }>(
       `query GetTasks($where: tasks_bool_exp) {
         tasks(where: $where, order_by: [{ due_date: asc }, { created_at: desc }]) {
           id title description priority status
           due_date start_date completed_date estimated_hours
-          intern_id assigned_by assigned_to department_id
+          assigned_by assigned_to department_id
           tags notes created_at updated_at
         }
       }`,
       { where },
     );
 
-    // ── Fetch task_interns map ──────────────────────────────────────────────
+    // ── Early return if no tasks ─────────────────────────────────────────────
+    if (tasksData.tasks.length === 0) {
+      return NextResponse.json({ success: true, tasks: [] });
+    }
+
+    // ── Fetch task_interns scoped to fetched tasks only ──────────────────────
+    const task_ids = tasksData.tasks.map(t => t.id);
+
     const tiData = await hasura<{
-      task_interns: { task_id: string; intern_id: string; intern_status: string }[]
+      task_interns: {
+        task_id: string;
+        intern_id: string;
+        intern_status: string;
+        intern: { id: string; name: string; email: string };
+      }[]
     }>(
-      `query GetTaskInterns { task_interns { task_id intern_id intern_status } }`,
-      {},
+      `query GetTaskInterns($task_ids: [uuid!]!) {
+        task_interns(where: { task_id: { _in: $task_ids } }) {
+          task_id
+          intern_id
+          intern_status
+          intern { id name email }
+        }
+      }`,
+      { task_ids },
     );
 
-    // Map: task_id → { intern_ids, intern_statuses }
-    const tiMap = new Map<string, { ids: string[]; statuses: Record<string, string> }>();
+    // Map: task_id → { ids, statuses, interns }
+    const tiMap = new Map<string, {
+      ids: string[];
+      statuses: Record<string, string>;
+      interns: Array<{ id: string; name: string; email: string }>;
+    }>();
+
     for (const ti of tiData.task_interns) {
-      if (!tiMap.has(ti.task_id)) tiMap.set(ti.task_id, { ids: [], statuses: {} });
+      if (!tiMap.has(ti.task_id)) tiMap.set(ti.task_id, { ids: [], statuses: {}, interns: [] });
       const entry = tiMap.get(ti.task_id)!;
       entry.ids.push(ti.intern_id);
       entry.statuses[ti.intern_id] = ti.intern_status;
+      entry.interns.push(ti.intern);
     }
 
-    // For interns: resolve their interns.id to attach their own intern_status
+    // Resolve current intern's id for my_intern_status
     let currentInternId: string | undefined;
     if (role === 'intern') {
       const internLookup = await hasura<{ interns: { id: string }[] }>(
@@ -91,13 +107,14 @@ export async function GET(req: NextRequest) {
     }
 
     const tasks = tasksData.tasks.map(task => {
-      const entry      = tiMap.get(task.id as string);
-      const intern_ids = entry?.ids ?? (task.intern_id ? [task.intern_id as string] : []);
-      // my_intern_status: the current intern's personal completion on this task
+      const entry            = tiMap.get(task.id as string);
+      const intern_ids       = entry?.ids ?? [];
+      const intern_statuses  = entry?.statuses ?? {};
+      const interns          = entry?.interns ?? [];
       const my_intern_status = currentInternId
         ? (entry?.statuses[currentInternId] ?? 'pending')
         : undefined;
-      return { ...task, intern_ids, intern_statuses: entry?.statuses ?? {}, my_intern_status };
+      return { ...task, intern_ids, intern_statuses, interns, my_intern_status };
     });
 
     return NextResponse.json({ success: true, tasks });
