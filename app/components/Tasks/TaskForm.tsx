@@ -12,12 +12,12 @@ interface TaskFormProps {
   initialTask?: Task;
   isSubmitting?: boolean;
   isAdmin?: boolean;
+  userRole?: string;
 }
 
 export const TaskForm: React.FC<TaskFormProps> = ({
   interns = [],
   departments = [],
-  users = [],
   onSubmit,
   onCancel,
   initialTask,
@@ -31,7 +31,6 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     status: 'open',
     intern_ids: [],
     department_id: '',
-    assigned_to: '',
     due_date: '',
     start_date: new Date().toISOString().split('T')[0],
     estimated_hours: 0,
@@ -40,7 +39,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     ...initialTask,
   });
 
-  const [tagsInput, setTagsInput] = useState<string>(initialTask?.tags?.join(', ') || '');
+  const [tagsInput, setTagsInput] = useState(initialTask?.tags?.join(', ') || '');
 
   useEffect(() => {
     if (initialTask) {
@@ -49,239 +48,249 @@ export const TaskForm: React.FC<TaskFormProps> = ({
     }
   }, [initialTask]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleInternChange = (internId: string) => {
-    setFormData((prev) => {
-      const currentIds = prev.intern_ids || [];
-      const updatedIds = currentIds.includes(internId)
-        ? currentIds.filter((id) => id !== internId)
-        : [...currentIds, internId];
-      
-      // Set department_id from first selected intern
-      const firstIntern = interns.find((i) => i.id === updatedIds[0]);
-      return {
-        ...prev,
-        intern_ids: updatedIds,
-        department_id: firstIntern?.department_id || prev.department_id,
-      };
+  const handleInternToggle = (internId: string) => {
+    setFormData(prev => {
+      const current = prev.intern_ids || [];
+      const updated = current.includes(internId)
+        ? current.filter(id => id !== internId)
+        : [...current, internId];
+      const firstIntern = interns.find(i => i.id === updated[0]);
+      return { ...prev, intern_ids: updated, department_id: firstIntern?.department_id || prev.department_id };
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.intern_ids || formData.intern_ids.length === 0) {
       alert('Please select at least one intern');
       return;
     }
-
-    const tags = tagsInput
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
-
-    onSubmit({
-      ...formData,
-      tags,
-    });
+    const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
+    onSubmit({ ...formData, tags });
   };
 
+  const inputCls = [
+    'w-full px-3.5 py-2.5 rounded-xl text-sm transition-colors',
+    'border border-slate-200 dark:border-slate-700',
+    'bg-white dark:bg-slate-800/60',
+    'text-slate-800 dark:text-slate-100',
+    'placeholder-slate-400 dark:placeholder-slate-500',
+    'focus:outline-none focus:ring-2 focus:ring-primary-500/40 focus:border-primary-400 dark:focus:border-primary-500',
+  ].join(' ');
+
+  const labelCls = 'block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5';
+
+  const selectedDept = departments.find(d => d.id === formData.department_id);
+
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Title */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title || ''}
-            onChange={handleInputChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter task title"
-          />
-        </div>
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
 
-        {/* Description */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <textarea
-            name="description"
-            value={formData.description || ''}
-            onChange={handleInputChange}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter task description"
-          />
-        </div>
+      {/* Form header */}
+      <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+        <h2 className="font-semibold text-slate-800 dark:text-slate-100">
+          {initialTask ? 'Edit Task' : 'New Task'}
+        </h2>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+          {initialTask ? 'Update the task details below' : 'Fill in the details to create a new task'}
+        </p>
+      </div>
 
-        {/* Interns */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Assign to Interns *</label>
-          <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto">
-            {interns.length > 0 ? (
-              <div className="space-y-2">
-                {interns.map((intern) => (
-                  <label key={intern.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={(formData.intern_ids || []).includes(intern.id)}
-                      onChange={() => handleInternChange(intern.id)}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">{intern.name}</span>
-                  </label>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No interns available</p>
+      <div className="p-6 space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {/* Title */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>Title <span className="text-red-400">*</span></label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title || ''}
+              onChange={handleChange}
+              required
+              placeholder="Enter task title"
+              className={inputCls}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>Description</label>
+            <textarea
+              name="description"
+              value={formData.description || ''}
+              onChange={handleChange}
+              rows={3}
+              placeholder="What needs to be done?"
+              className={`${inputCls} resize-none`}
+            />
+          </div>
+
+          {/* Assign Interns */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>
+              Assign to Interns <span className="text-red-400">*</span>
+              {formData.intern_ids && formData.intern_ids.length > 0 && (
+                <span className="ml-2 normal-case font-medium text-primary-600 dark:text-primary-400">
+                  {formData.intern_ids.length} selected
+                </span>
+              )}
+            </label>
+            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+              {interns.length > 0 ? (
+                <div className="max-h-44 overflow-y-auto divide-y divide-slate-50 dark:divide-slate-800">
+                  {interns.map(intern => {
+                    const checked = (formData.intern_ids || []).includes(intern.id);
+                    return (
+                      <label
+                        key={intern.id}
+                        className={[
+                          'flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors',
+                          checked
+                            ? 'bg-primary-50 dark:bg-primary-900/20'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50',
+                        ].join(' ')}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleInternToggle(intern.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        />
+                        <span className={`text-sm ${checked ? 'text-primary-700 dark:text-primary-300 font-medium' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {intern.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400 dark:text-slate-500 px-4 py-3">No interns available</p>
+              )}
+            </div>
+            {(!formData.intern_ids || formData.intern_ids.length === 0) && (
+              <p className="mt-1.5 text-xs text-red-500 dark:text-red-400">Please select at least one intern</p>
             )}
           </div>
-          {(!formData.intern_ids || formData.intern_ids.length === 0) && (
-            <p className="mt-1 text-sm text-red-500">Please select at least one intern</p>
-          )}
-        </div>
 
-        {/* Department */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
-          <select
-            name="department_id"
-            value={formData.department_id || ''}
-            onChange={handleInputChange}
-            required
-            disabled
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 cursor-not-allowed"
-          >
-            <option value="">Auto-filled from intern</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id}>
-                {dept.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          {/* Department (auto-filled) */}
+          <div>
+            <label className={labelCls}>Department</label>
+            <div className={`${inputCls} flex items-center gap-2 cursor-not-allowed opacity-70`}>
+              {selectedDept ? (
+                <span className="inline-block bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                  {selectedDept.name}
+                </span>
+              ) : (
+                <span className="text-slate-400 dark:text-slate-500 text-xs">Auto-filled from intern</span>
+              )}
+            </div>
+          </div>
 
-        {/* Priority */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-          <select
-            name="priority"
-            value={formData.priority || 'medium'}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
+          {/* Priority */}
+          <div>
+            <label className={labelCls}>Priority</label>
+            <select name="priority" value={formData.priority || 'medium'} onChange={handleChange} className={inputCls}>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
 
-        {/* Status */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select
-            name="status"
-            value={formData.status || 'open'}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="open">Open</option>
-            <option value="in_progress">In Progress</option>
-            <option value="on_hold">On Hold</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
+          {/* Status */}
+          <div>
+            <label className={labelCls}>Status</label>
+            <select name="status" value={formData.status || 'open'} onChange={handleChange} className={inputCls}>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="on_hold">On Hold</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
 
-        {/* Start Date */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-          <input
-            type="date"
-            name="start_date"
-            value={formData.start_date || ''}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          {/* Start Date */}
+          <div>
+            <label className={labelCls}>Start Date</label>
+            <input type="date" name="start_date" value={formData.start_date || ''} onChange={handleChange} className={inputCls} />
+          </div>
 
-        {/* Due Date */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-          <input
-            type="date"
-            name="due_date"
-            value={formData.due_date || ''}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          {/* Due Date */}
+          <div>
+            <label className={labelCls}>Due Date</label>
+            <input type="date" name="due_date" value={formData.due_date || ''} onChange={handleChange} className={inputCls} />
+          </div>
 
-        {/* Estimated Hours */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Hours</label>
-          <input
-            type="number"
-            name="estimated_hours"
-            value={formData.estimated_hours || ''}
-            onChange={handleInputChange}
-            step="0.5"
-            min="0"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          {/* Estimated Hours */}
+          <div>
+            <label className={labelCls}>Estimated Hours</label>
+            <input
+              type="number"
+              name="estimated_hours"
+              value={formData.estimated_hours || ''}
+              onChange={handleChange}
+              step="0.5"
+              min="0"
+              placeholder="0"
+              className={inputCls}
+            />
+          </div>
 
-        {/* Tags */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
-          <input
-            type="text"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. urgent, backend, testing"
-          />
-        </div>
+          {/* Tags */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>Tags <span className="normal-case font-normal text-slate-400">(comma-separated)</span></label>
+            <input
+              type="text"
+              value={tagsInput}
+              onChange={e => setTagsInput(e.target.value)}
+              placeholder="e.g. urgent, backend, testing"
+              className={inputCls}
+            />
+          </div>
 
-        {/* Notes */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Admin Notes</label>
-          <textarea
-            name="notes"
-            value={formData.notes || ''}
-            onChange={handleInputChange}
-            rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Internal notes"
-          />
+          {/* Notes */}
+          <div className="md:col-span-2">
+            <label className={labelCls}>Admin Notes</label>
+            <textarea
+              name="notes"
+              value={formData.notes || ''}
+              onChange={handleChange}
+              rows={2}
+              placeholder="Internal notes (not visible to interns)"
+              className={`${inputCls} resize-none`}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-3 justify-end pt-4">
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition"
+          className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+          className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white shadow-sm shadow-primary-200 dark:shadow-primary-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Saving...' : initialTask ? 'Update Task' : 'Create Task'}
+          {isSubmitting ? (
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Saving…
+            </span>
+          ) : initialTask ? 'Update Task' : 'Create Task'}
         </button>
       </div>
     </form>

@@ -45,10 +45,25 @@ services:
       HASURA_GRAPHQL_METADATA_DIR:          "/hasura-metadata"
       # ← Auto-apply metadata (including all permissions) on every startup
       HASURA_GRAPHQL_ENABLE_REMOTE_SCHEMA_PERMISSIONS: "true"
-    command:
-      - graphql-engine
-      - serve
-      - --metadata-path=/hasura-metadata/metadata.json
 
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8080' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+# ── Apply Hasura Permissions ──────────────────────────────────────────────
+  hasura-permissions:
+    image: alpine/curl
+    container_name: internhub_permissions
+    depends_on:
+      hasura:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh apply-permissions.sh
+    restart: "no"
 volumes:
   postgres_data:

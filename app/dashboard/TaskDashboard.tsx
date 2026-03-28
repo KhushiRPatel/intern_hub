@@ -10,7 +10,6 @@ import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS } from '@/graphql/queries';
 
 type TaskViewMode = 'list' | 'form';
-
 interface Department { id: string; name: string; }
 interface Intern     { id: string; name: string; department_id: string; }
 
@@ -27,18 +26,15 @@ export const TaskDashboard: React.FC = () => {
   const [toast,        setToast]        = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [interns,      setInterns]      = useState<Intern[]>([]);
 
-  // ── Departments via GraphQL (same as rest of app) ──────────────────────────
   const { data: deptData } = useQuery<{ departments: Department[] }>(GET_DEPARTMENTS);
   const departments = deptData?.departments ?? [];
-
-  const authHeader = { Authorization: `Bearer ${token}` };
+  const authHeader  = { Authorization: `Bearer ${token}` };
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // ── Fetch tasks (server already scopes by role) ────────────────────────────
   const fetchTasks = async () => {
     if (!user || !token) return;
     setIsLoading(true);
@@ -47,17 +43,15 @@ export const TaskDashboard: React.FC = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tasks');
 
-      // Client-side filter on top of server-scoped results
       let list: Task[] = data.tasks;
       if (filters.search)
         list = list.filter(t =>
           t.title.toLowerCase().includes(filters.search.toLowerCase()) ||
           t.description?.toLowerCase().includes(filters.search.toLowerCase()),
         );
-      if (filters.status)   list = list.filter(t => t.status === filters.status);
-      if (filters.priority) list = list.filter(t => t.priority === filters.priority);
-      if (filters.intern_id)
-        list = list.filter(t => t.intern_ids?.includes(filters.intern_id));
+      if (filters.status)    list = list.filter(t => t.status === filters.status);
+      if (filters.priority)  list = list.filter(t => t.priority === filters.priority);
+      if (filters.intern_id) list = list.filter(t => t.intern_ids?.includes(filters.intern_id));
       if (filters.date_range !== 'all') {
         const today = new Date(); today.setHours(0, 0, 0, 0);
         list = list.filter(t => {
@@ -73,21 +67,17 @@ export const TaskDashboard: React.FC = () => {
         });
       }
       setTasks(list);
-    } catch (err) {
+    } catch {
       showToast('Failed to load tasks', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ── Fetch interns for task assignment (admin/dept only) ───────────────────
-  // Interns never see this list — they can't assign tasks
   const fetchInterns = async () => {
     if (!user || !token || user.role === 'intern') return;
     try {
-      const url = user.role === 'admin'
-        ? '/api/interns'
-        : `/api/interns?department_id=${user.department_id}`;
+      const url  = user.role === 'admin' ? '/api/interns' : `/api/interns?department_id=${user.department_id}`;
       const res  = await fetch(url, { headers: authHeader });
       if (!res.ok) return;
       const data = await res.json();
@@ -98,7 +88,6 @@ export const TaskDashboard: React.FC = () => {
   useEffect(() => { fetchTasks(); fetchInterns(); }, [user, token]);
   useEffect(() => { fetchTasks(); }, [filters]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleCreateTask = async (formData: Partial<Task>) => {
     setIsLoading(true);
     try {
@@ -108,7 +97,7 @@ export const TaskDashboard: React.FC = () => {
         body: JSON.stringify({ ...formData, assigned_by: user?.id }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      showToast('Task created');
+      showToast('Task created successfully');
       await fetchTasks();
       setViewMode('list'); setSelectedTask(null);
     } catch (err) {
@@ -126,7 +115,7 @@ export const TaskDashboard: React.FC = () => {
         body: JSON.stringify({ id: selectedTask.id, ...formData }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
-      showToast('Task updated');
+      showToast('Task updated successfully');
       await fetchTasks();
       setViewMode('list'); setSelectedTask(null);
     } catch (err) {
@@ -167,49 +156,80 @@ export const TaskDashboard: React.FC = () => {
 
   const isIntern = user?.role === 'intern';
 
+  const stats = [
+    { label: 'Open',        value: tasks.filter(t => t.status === 'open').length,        color: 'blue'   as const },
+    { label: 'In Progress', value: tasks.filter(t => t.status === 'in_progress').length, color: 'indigo' as const },
+    { label: 'Completed',   value: tasks.filter(t => t.status === 'completed').length,   color: 'green'  as const },
+    { label: 'Overdue',     value: tasks.filter(t =>
+      t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed'
+    ).length, color: 'red' as const },
+  ];
+
   return (
     <div className="space-y-6">
 
       {/* ── Toast ── */}
       {toast && (
-        <div className={`fixed top-4 right-4 px-4 py-3 rounded-lg text-white z-50 shadow-lg ${
-          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-        }`}>
+        <div className={[
+          'fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white',
+          'animate-slide-in-right',
+          toast.type === 'success'
+            ? 'bg-primary-600'
+            : 'bg-red-500',
+        ].join(' ')}>
+          {toast.type === 'success' ? (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
           {toast.message}
         </div>
       )}
 
       {/* ── Header ── */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tasks</h1>
-          {/* Role hint so interns know they are in read/complete-only mode */}
-          {isIntern && (
-            <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Tasks</h1>
+          {isIntern ? (
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
               Showing tasks assigned to you · You can mark tasks as completed
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+              {tasks.length} task{tasks.length !== 1 ? 's' : ''} total
             </p>
           )}
         </div>
-        {/* Only admin / dept_person see "New Task" */}
+
         {canCreateTask && viewMode === 'list' && (
           <button
             onClick={() => { setSelectedTask(null); setViewMode('form'); }}
             disabled={isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white shadow-sm shadow-primary-200 dark:shadow-primary-900/30 transition-colors disabled:opacity-50"
           >
-            + New Task
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Task
           </button>
         )}
       </div>
 
-      {/* ── Form view (create / edit) — never shown to interns ── */}
+      {/* ── Form view ── */}
       {viewMode === 'form' && !isIntern ? (
         <div>
           <button
             onClick={() => { setViewMode('list'); setSelectedTask(null); }}
-            className="mb-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            className="mb-4 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium transition-colors"
           >
-            ← Back to list
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to list
           </button>
           <TaskForm
             interns={interns}
@@ -224,23 +244,18 @@ export const TaskDashboard: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* ── Filters — hide intern filter for interns (they only see their own) ── */}
+          {/* ── Stat cards ── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {stats.map(s => <StatCard key={s.label} {...s} />)}
+          </div>
+
+          {/* ── Filters ── */}
           <TaskFilters
             filters={filters}
             onFilterChange={setFilters}
-            interns={isIntern ? [] : interns}   // hide intern dropdown for interns
+            interns={isIntern ? [] : interns}
             showInternFilter={!isIntern}
           />
-
-          {/* ── Stat cards ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard label="Open"        value={tasks.filter(t => t.status === 'open').length}        color="blue"   />
-            <StatCard label="In Progress" value={tasks.filter(t => t.status === 'in_progress').length} color="purple" />
-            <StatCard label="Completed"   value={tasks.filter(t => t.status === 'completed').length}   color="green"  />
-            <StatCard label="Overdue"     value={tasks.filter(t =>
-              t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed'
-            ).length} color="red" />
-          </div>
 
           {/* ── Task list ── */}
           <TaskList
@@ -261,14 +276,21 @@ export const TaskDashboard: React.FC = () => {
   );
 };
 
-/* ── Stat card ── */
-interface StatCardProps { label: string; value: number; color: 'blue'|'purple'|'green'|'red'; }
+/* ── Stat Card ── */
+interface StatCardProps { label: string; value: number; color: 'blue' | 'indigo' | 'green' | 'red'; }
+
 const StatCard: React.FC<StatCardProps> = ({ label, value, color }) => {
-  const c = { blue:'bg-blue-50 border-blue-200 text-blue-600', purple:'bg-purple-50 border-purple-200 text-purple-600', green:'bg-green-50 border-green-200 text-green-600', red:'bg-red-50 border-red-200 text-red-600' };
+  const styles = {
+    blue:   { wrap: 'bg-blue-50   dark:bg-blue-900/10   border-blue-100  dark:border-blue-900/30',  num: 'text-blue-600   dark:text-blue-400',   label: 'text-blue-500   dark:text-blue-500'   },
+    indigo: { wrap: 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30', num: 'text-indigo-600 dark:text-indigo-400', label: 'text-indigo-500 dark:text-indigo-500' },
+    green:  { wrap: 'bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-900/30', num: 'text-primary-600 dark:text-primary-400', label: 'text-primary-500 dark:text-primary-500' },
+    red:    { wrap: 'bg-red-50    dark:bg-red-900/10    border-red-100   dark:border-red-900/30',   num: 'text-red-600    dark:text-red-400',     label: 'text-red-500    dark:text-red-500'    },
+  };
+  const s = styles[color];
   return (
-    <div className={`${c[color]} border rounded-xl p-4`}>
-      <p className="text-sm font-medium text-gray-600 mb-1">{label}</p>
-      <p className="text-3xl font-bold">{value}</p>
+    <div className={`${s.wrap} border rounded-2xl p-4`}>
+      <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${s.label}`}>{label}</p>
+      <p className={`text-3xl font-bold ${s.num}`}>{value}</p>
     </div>
   );
 };
