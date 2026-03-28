@@ -38,7 +38,7 @@ Manage interns across departments with role-based access control, JWT authentica
 | Action | Admin | Dept Person | Intern |
 |--------|-------|-------------|--------|
 | View all interns | ✅ | ✅ own dept | ✅ own record |
-| Add intern | ✅ | ❌ | ❌ |
+| Add intern | ✅ | ✅ own dept | ❌ |
 | Edit intern | ✅ | ✅ own dept | ✅ limited fields |
 | Delete intern | ✅ | ❌ | ❌ |
 | Create task | ✅ | ✅ own dept | ❌ |

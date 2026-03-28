@@ -80,31 +80,14 @@ docker ps
 # Should show internhub_postgres and internhub_hasura both Up
 ```
 
-### Step 4 — Track Tables in Hasura Console
-
-1. Open **http://localhost:8080**
-2. Enter admin secret: `myadminsecret`
-3. Go to **Data** tab → click **`public`** schema
-4. Click **Track All** under *Untracked Tables*
-5. Click **Track All** under *Untracked foreign-key relationships*
-
-> ✅ Only needed **once** on first setup. Permissions are already applied via metadata.
-
-### Step 5 — Apply Hasura Permissions (First Time Only)
-
-```bash
-node apply-permissions.mjs
-```
-
-This sets row-level permissions for all roles on all tables. Run once after first `docker compose up`. All `already exists` messages are fine.
-
-### Step 6 — Start the App
-
+### Step 4 — Start the App
 ```bash
 npm run dev
 ```
 
 Open **http://localhost:3000** and log in with `admin@company.com` / `admin123`.
+
+> ✅ Table tracking and Hasura permissions are applied automatically by Docker on first startup — no manual steps needed.
 
 ---
 
@@ -128,8 +111,7 @@ Open **http://localhost:3000** and log in with `admin@company.com` / `admin123`.
 | `docker compose down -v` | Stop and **delete all data** (fresh start) |
 | `docker compose logs -f hasura` | Stream Hasura logs |
 | `docker ps` | List running containers |
-| `node apply-permissions.mjs` | Re-apply all Hasura permissions |
-| `node export-metadata.mjs` | Export current Hasura metadata to file |
+| `sh apply-permissions.sh` | Manually re-apply all Hasura permissions (runs automatically via Docker) |
 | `npm run dev` | Start Next.js dev server |
 | `npm run build` | Build for production |
 
