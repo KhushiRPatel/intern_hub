@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
 
 async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_ENDPOINT, {
@@ -53,13 +53,22 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Update task fields ──────────────────────────────────────────────────
+
+    const {
+      intern_statuses,  // lives in task_interns, not tasks
+      interns,          // relation, not a column
+      intern_ids: _,    // already destructured above
+      my_intern_status, // frontend-only
+      ...taskUpdates    // only real tasks columns remain
+    } = updates;
+
     const result = await hasura<{ update_tasks_by_pk: { id: string; title: string; status: string; priority: string; due_date: string; updated_at: string } }>(
       `mutation UpdateTask($id: uuid!, $set: tasks_set_input!) {
-        update_tasks_by_pk(pk_columns: { id: $id }, _set: $set) {
-          id title status priority due_date updated_at
-        }
-      }`,
-      { id, set: updates },
+    update_tasks_by_pk(pk_columns: { id: $id }, _set: $set) {
+      id title status priority due_date updated_at
+    }
+  }`,
+      { id, set: taskUpdates },
     );
 
     // ── Update intern assignments if provided ───────────────────────────────
@@ -88,6 +97,18 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    // after task fields are updated
+    await hasura(`mutation InsertActivity($object: task_activity_log_insert_input!) {
+  insert_task_activity_log_one(object: $object) { id }
+}`, {
+      object: {
+        task_id: id,
+        user_id: userId,
+        action: 'task_updated',
+        new_value: taskUpdates.status ?? taskUpdates.title ?? 'fields updated'
+      }
+    });
 
     return NextResponse.json({ success: true, task: result.update_tasks_by_pk });
   } catch (err) {

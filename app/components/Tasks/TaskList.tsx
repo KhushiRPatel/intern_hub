@@ -11,6 +11,7 @@ interface TaskListProps {
   onEdit?: (task: Task) => void;
   onDelete?: (taskId: string) => void;
   onStatusChange?: (taskId: string, newStatus: string) => void;
+  onViewDetail?: (task: Task) => void;
   canEdit?: (task: Task) => boolean;
   canDelete?: (task: Task) => boolean;
   canChangeStatus?: (task: Task, newStatus: string) => boolean;
@@ -25,6 +26,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   onEdit,
   onDelete,
   onStatusChange,
+  onViewDetail,
   canEdit         = () => false,
   canDelete       = () => false,
   canChangeStatus = () => false,
@@ -75,6 +77,7 @@ export const TaskList: React.FC<TaskListProps> = ({
           onEdit={onEdit}
           onDelete={onDelete}
           onStatusChange={onStatusChange}
+          onViewDetail={onViewDetail}
           canEdit={canEdit(task)}
           canDelete={canDelete(task)}
           canChangeStatus={canChangeStatus(task, 'completed')}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
 
 async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_ENDPOINT, {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { title, description, priority, status, intern_ids, department_id,
-            due_date, start_date, estimated_hours, tags, notes } = body;
+      due_date, start_date, estimated_hours, tags, notes } = body;
 
     if (!title || !Array.isArray(intern_ids) || intern_ids.length === 0) {
       return NextResponse.json(
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     // init.sql get a different UUID than the hardcoded demo login IDs).
     // Always look up by email — the unique key that never mismatches.
     const { decoded } = authCheck;
-    const tokenEmail  = (decoded as any).email as string;
+    const tokenEmail = (decoded as any).email as string;
 
     const dbUserData = await hasura<{ users: { id: string }[] }>(
       `query GetUserByEmail($email: citext!) {
@@ -70,11 +70,11 @@ export async function POST(req: NextRequest) {
           ) { id }
         }`,
         {
-          id:    userId,
-          name:  (decoded as any).name ?? 'Unknown',
+          id: userId,
+          name: (decoded as any).name ?? 'Unknown',
           email: tokenEmail,
           role,
-          dept:  departmentId || null,
+          dept: departmentId || null,
         },
       );
       realUserId = inserted.insert_users_one?.id ?? userId;
@@ -88,17 +88,17 @@ export async function POST(req: NextRequest) {
       {
         obj: {
           title,
-          description:     description || null,
-          priority:        priority || 'medium',
-          status:          status || 'open',
-          intern_id:       intern_ids[0] || null, // backward compat
-          assigned_by:     realUserId, // ← real DB id, not token id
+          description: description || null,
+          priority: priority || 'medium',
+          status: status || 'open',
+          intern_id: intern_ids[0] || null, // backward compat
+          assigned_by: realUserId, // ← real DB id, not token id
           department_id,
-          due_date:        due_date || null,
-          start_date:      start_date || new Date().toISOString().split('T')[0],
+          due_date: due_date || null,
+          start_date: start_date || new Date().toISOString().split('T')[0],
           estimated_hours: estimated_hours || null,
-          tags:            tags?.length ? tags : null,
-          notes:           notes || null,
+          tags: tags?.length ? tags : null,
+          notes: notes || null,
         },
       },
     );
@@ -113,6 +113,17 @@ export async function POST(req: NextRequest) {
       { objects: intern_ids.map((internId: string) => ({ task_id: taskId, intern_id: internId })) },
     );
 
+    // after task is created
+    await hasura(`mutation InsertActivity($object: task_activity_log_insert_input!) {
+  insert_task_activity_log_one(object: $object) { id }
+}`, {
+      object: {
+        task_id: taskId,
+        user_id: realUserId,
+        action: 'task_created',
+        new_value: title,
+      }
+    });
     return NextResponse.json({ success: true, task: taskData.insert_tasks_one });
   } catch (err) {
     console.error('[api/tasks/create]', err);

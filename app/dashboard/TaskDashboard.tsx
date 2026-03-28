@@ -6,6 +6,7 @@ import { useTaskContext, Task } from '@/app/context/TaskContext';
 import TaskList from '@/app/components/Tasks/TaskList';
 import TaskForm from '@/app/components/Tasks/TaskForm';
 import TaskFilters, { TaskFilterOptions } from '@/app/components/Tasks/TaskFilters';
+import TaskDetailModal from '@/app/components/Tasks/TaskDetailModal';
 import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS } from '@/graphql/queries';
 
@@ -19,6 +20,8 @@ export const TaskDashboard: React.FC = () => {
 
   const [viewMode,     setViewMode]     = useState<TaskViewMode>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailTask,   setDetailTask]   = useState<Task | null>(null);
+  const [detailOpen,   setDetailOpen]   = useState(false);
   const [filters,      setFilters]      = useState<TaskFilterOptions>({
     search: '', status: '', priority: '', intern_id: '', date_range: 'all',
   });
@@ -171,21 +174,13 @@ export const TaskDashboard: React.FC = () => {
       {/* ── Toast ── */}
       {toast && (
         <div className={[
-          'fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white',
-          'animate-slide-in-right',
-          toast.type === 'success'
-            ? 'bg-primary-600'
-            : 'bg-red-500',
+          'fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-slide-in-right',
+          toast.type === 'success' ? 'bg-primary-600' : 'bg-red-500',
         ].join(' ')}>
-          {toast.type === 'success' ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
+          {toast.type === 'success'
+            ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+            : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          }
           {toast.message}
         </div>
       )}
@@ -194,17 +189,12 @@ export const TaskDashboard: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Tasks</h1>
-          {isIntern ? (
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
-              Showing tasks assigned to you · You can mark tasks as completed
-            </p>
-          ) : (
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
-              {tasks.length} task{tasks.length !== 1 ? 's' : ''} total
-            </p>
-          )}
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-0.5">
+            {isIntern
+              ? 'Showing tasks assigned to you · You can mark tasks as completed'
+              : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} total`}
+          </p>
         </div>
-
         {canCreateTask && viewMode === 'list' && (
           <button
             onClick={() => { setSelectedTask(null); setViewMode('form'); }}
@@ -244,12 +234,10 @@ export const TaskDashboard: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* ── Stat cards ── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {stats.map(s => <StatCard key={s.label} {...s} />)}
           </div>
 
-          {/* ── Filters ── */}
           <TaskFilters
             filters={filters}
             onFilterChange={setFilters}
@@ -257,13 +245,13 @@ export const TaskDashboard: React.FC = () => {
             showInternFilter={!isIntern}
           />
 
-          {/* ── Task list ── */}
           <TaskList
             tasks={tasks}
             isLoading={isLoading}
             onEdit={(task) => { setSelectedTask(task); setViewMode('form'); }}
             onDelete={handleDeleteTask}
             onStatusChange={handleStatusChange}
+            onViewDetail={(task) => { setDetailTask(task); setDetailOpen(true); }}
             canEdit={canEditTask}
             canDelete={canDeleteTask}
             canChangeStatus={canChangeStatus}
@@ -272,19 +260,27 @@ export const TaskDashboard: React.FC = () => {
           />
         </>
       )}
+
+      {/* ── Task Detail Modal ── */}
+      <TaskDetailModal
+        task={detailTask}
+        isOpen={detailOpen}
+        onClose={() => { setDetailOpen(false); setDetailTask(null); }}
+        token={token}
+        userRole={user?.role ?? 'intern'}
+      />
     </div>
   );
 };
 
 /* ── Stat Card ── */
 interface StatCardProps { label: string; value: number; color: 'blue' | 'indigo' | 'green' | 'red'; }
-
 const StatCard: React.FC<StatCardProps> = ({ label, value, color }) => {
   const styles = {
-    blue:   { wrap: 'bg-blue-50   dark:bg-blue-900/10   border-blue-100  dark:border-blue-900/30',  num: 'text-blue-600   dark:text-blue-400',   label: 'text-blue-500   dark:text-blue-500'   },
+    blue:   { wrap: 'bg-blue-50   dark:bg-blue-900/10   border-blue-100  dark:border-blue-900/30',   num: 'text-blue-600   dark:text-blue-400',   label: 'text-blue-500   dark:text-blue-500'   },
     indigo: { wrap: 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30', num: 'text-indigo-600 dark:text-indigo-400', label: 'text-indigo-500 dark:text-indigo-500' },
     green:  { wrap: 'bg-primary-50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-900/30', num: 'text-primary-600 dark:text-primary-400', label: 'text-primary-500 dark:text-primary-500' },
-    red:    { wrap: 'bg-red-50    dark:bg-red-900/10    border-red-100   dark:border-red-900/30',   num: 'text-red-600    dark:text-red-400',     label: 'text-red-500    dark:text-red-500'    },
+    red:    { wrap: 'bg-red-50    dark:bg-red-900/10    border-red-100   dark:border-red-900/30',    num: 'text-red-600    dark:text-red-400',     label: 'text-red-500    dark:text-red-500'    },
   };
   const s = styles[color];
   return (

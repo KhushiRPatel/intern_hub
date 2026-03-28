@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
 
 async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_ENDPOINT, {
@@ -45,6 +45,13 @@ export async function POST(req: NextRequest) {
       logPermissionDenial(userId, role, 'delete_task');
       return NextResponse.json({ error: 'Interns cannot delete tasks' }, { status: 403 });
     }
+    
+    await hasura(
+      `mutation InsertActivity($object: task_activity_log_insert_input!) {
+    insert_task_activity_log_one(object: $object) { id }
+  }`,
+      { object: { task_id: id, user_id: userId, action: 'task_deleted', old_value: task.title } }
+    );
 
     // ── Delete (task_interns cascade via FK) ────────────────────────────────
     await hasura(
@@ -53,6 +60,7 @@ export async function POST(req: NextRequest) {
       }`,
       { id },
     );
+
 
     return NextResponse.json({ success: true });
   } catch (err) {

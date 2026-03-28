@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
-const HASURA_ADMIN    = process.env.HASURA_ADMIN_SECRET || '';
+const HASURA_ADMIN = process.env.HASURA_ADMIN_SECRET || '';
 
 async function hasura<T = unknown>(query: string, variables: Record<string, unknown>): Promise<T> {
   const res = await fetch(HASURA_ENDPOINT, {
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     const completionDate = status === 'completed'
       ? (completed_date || new Date().toISOString().split('T')[0])
       : null;
-
+  
     const result = await hasura<{
       update_tasks_by_pk: { id: string; status: string; completed_date: string; updated_at: string }
     }>(
@@ -116,10 +116,26 @@ export async function POST(req: NextRequest) {
       }`,
       { id, set: { status, ...(completionDate && { completed_date: completionDate }) } },
     );
+    
+    // after status is changed — most useful one
+    await hasura(`mutation InsertActivity($object: task_activity_log_insert_input!) {
+  insert_task_activity_log_one(object: $object) { id }
+}`, {
+      object: {
+        task_id: id,
+        user_id: userId,
+        action: 'status_changed',
+        old_value: task.status,       // fetch old status before updating
+        new_value: status,
+      }
+    });
+
+
+
 
     return NextResponse.json({
-      success:        true,
-      status:         result.update_tasks_by_pk.status,
+      success: true,
+      status: result.update_tasks_by_pk.status,
       completed_date: result.update_tasks_by_pk.completed_date,
     });
   } catch (err) {
