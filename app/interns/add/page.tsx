@@ -12,60 +12,66 @@ const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
 async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
   const text = await res.text();
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`Server returned non-JSON response: ${text.slice(0, 120)}`);
-  }
+  try { return JSON.parse(text) as T; }
+  catch { throw new Error(`Server returned non-JSON response: ${text.slice(0, 120)}`); }
 }
 
 export default function AddInternPage() {
-  const { user, token } = useAuth();   // ← your branch: token for Authorization header
+  const { user, token } = useAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // ── Redirect non-admins ────────────────────────────────────────────────────
-  if (user && user.role !== 'admin') {
+  const isAdmin      = user?.role === 'admin';
+  const isDeptPerson = user?.role === 'department_person';
+
+  // ── Redirect interns ──────────────────────────────────────────────────────
+  if (user && !isAdmin && !isDeptPerson) {
     router.replace('/interns');
     return null;
   }
 
-  // ── Departments via GraphQL (your branch) ──────────────────────────────────
-  // Replaces Harshil's fetch('/api/departments') entirely.
+  // ── Departments via GraphQL ───────────────────────────────────────────────
   const { data: deptData, loading: deptsLoading, error: deptGqlError } = useQuery<{
     departments: DepartmentData[];
   }>(GET_DEPARTMENTS, { skip: IS_DEMO });
 
-  const departments: DepartmentData[] = IS_DEMO
-    ? DEMO_DEPARTMENTS
-    : (deptData?.departments ?? []);
+  const allDepartments: DepartmentData[] = IS_DEMO ? DEMO_DEPARTMENTS : (deptData?.departments ?? []);
+
+  // department_person only sees their own department
+  const departments: DepartmentData[] = isDeptPerson && user?.department_id
+    ? allDepartments.filter(d => d.id === user.department_id)
+    : allDepartments;
 
   const deptsError = deptGqlError?.message ?? null;
 
-  // ── Refetch hooks (your branch) ────────────────────────────────────────────
+  // ── Refetch hooks ─────────────────────────────────────────────────────────
   const { refetch: refetchInterns } = useQuery(GET_INTERNS, {
     variables: { where: {}, order_by: [{ created_at: 'desc' }] },
     skip: IS_DEMO,
   });
   const { refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, { skip: IS_DEMO });
 
-  // ── Loading state ──────────────────────────────────────────────────────────
   if (!IS_DEMO && deptsLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   const showNoDepartments = !IS_DEMO && !deptsLoading && !deptsError && departments.length === 0;
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (values: InternFormValues) => {
     setSubmitting(true);
     setError('');
     try {
+      // For department_person — force their own department_id
+      const department_id = isDeptPerson && user?.department_id
+        ? user.department_id
+        : values.department_id;
+
       if (IS_DEMO) {
         demoStore.create({
           name:          values.name.trim(),
@@ -74,7 +80,7 @@ export default function AddInternPage() {
           college:       values.college.trim(),
           degree:        values.degree?.trim() ?? '',
           branch:        values.branch?.trim() ?? '',
-          department_id: values.department_id,
+          department_id,
           start_date:    values.start_date,
           end_date:      values.end_date || undefined,
           status:        values.status,
@@ -83,7 +89,6 @@ export default function AddInternPage() {
         return;
       }
 
-      // ── your branch: send Authorization header so the API auth guard passes
       const res = await fetch('/api/interns/create', {
         method: 'POST',
         headers: {
@@ -97,7 +102,7 @@ export default function AddInternPage() {
           college:       values.college.trim(),
           degree:        values.degree?.trim() ?? '',
           branch:        values.branch?.trim() ?? '',
-          department_id: values.department_id,
+          department_id,
           start_date:    values.start_date,
           end_date:      values.end_date ?? null,
           status:        values.status,
@@ -110,10 +115,8 @@ export default function AddInternPage() {
       });
       if (!res.ok) throw new Error((data as { message?: string }).message || 'Failed to add intern');
 
-      // ── your branch: refetch both lists so UI updates without a hard reload
       await Promise.all([refetchInterns(), refetchStats()]);
       router.push('/interns');
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add intern');
       setSubmitting(false);
@@ -123,10 +126,9 @@ export default function AddInternPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        {/* Harshil's back button */}
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors mb-4"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-4"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -134,11 +136,27 @@ export default function AddInternPage() {
           Back
         </button>
         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Add New Intern</h2>
-        <p className="text-sm text-slate-500 mt-1">Fill in the details to register a new intern</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          {isDeptPerson
+            ? `Adding intern to your department · ${departments[0]?.name ?? ''}`
+            : 'Fill in the details to register a new intern'}
+        </p>
       </div>
 
+      {/* department_person: locked department banner */}
+      {isDeptPerson && departments[0] && (
+        <div className="mb-4 flex items-center gap-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800/40 rounded-xl px-4 py-3">
+          <svg className="w-4 h-4 text-primary-600 dark:text-primary-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <p className="text-sm text-primary-700 dark:text-primary-300">
+            Intern will be added to <span className="font-semibold">{departments[0].name}</span>
+          </p>
+        </div>
+      )}
+
       {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+        <div className="mb-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm">
           {error}
         </div>
       )}
@@ -151,7 +169,7 @@ export default function AddInternPage() {
 
       {showNoDepartments && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-sm">
-          No departments found in Hasura. Seed the <code>departments</code> table first.
+          No departments found. Seed the <code>departments</code> table first.
         </div>
       )}
 

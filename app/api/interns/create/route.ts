@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-// ← YOUR BRANCH: auth guards
-import { checkAuth, requireAdmin, getUserFromToken, logPermissionDenial } from '../../auth/utils';
-// ← HARSHIL'S BRANCH: email setup flow
+import { checkAuth, getUserFromToken, logPermissionDenial } from '../../auth/utils';
 import { sendPasswordSetupEmail } from '@/lib/email';
 
 const HASURA_ENDPOINT = process.env.HASURA_ENDPOINT || 'http://localhost:8080/v1/graphql';
@@ -24,7 +22,7 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
 
 export async function POST(req: NextRequest) {
   try {
-    // ── 0. Auth guard (YOUR BRANCH) ─────────────────────────────────────────
+    // ── 0. Auth guard ─────────────────────────────────────────────────────
     const authCheck = checkAuth(req);
     if (!authCheck.success || !authCheck.decoded) {
       return authCheck.response!;
@@ -32,13 +30,13 @@ export async function POST(req: NextRequest) {
 
     const { userId, role } = getUserFromToken(authCheck.decoded);
 
-    const adminError = requireAdmin(authCheck.decoded);
-    if (adminError) {
+    // Allow admin and department_person only
+    if (role !== 'admin' && role !== 'department_person') {
       logPermissionDenial(userId, role, 'create_intern');
-      return adminError;
+      return NextResponse.json({ message: 'Forbidden: insufficient role' }, { status: 403 });
     }
 
-    // ── 1. Parse & validate body ────────────────────────────────────────────
+    // ── 1. Parse & validate body ──────────────────────────────────────────
     const body = await req.json() as {
       name: string;
       email: string;
@@ -61,9 +59,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── 2. department_person: enforce own department only ─────────────────
+    if (role === 'department_person') {
+      const decoded = authCheck.decoded as { 'https://hasura.io/jwt/claims'?: Record<string, string> };
+      const claims  = decoded['https://hasura.io/jwt/claims'] ?? {};
+      const allowedDeptId = claims['x-hasura-department-id'];
+
+      if (!allowedDeptId || department_id !== allowedDeptId) {
+        logPermissionDenial(userId, role, 'create_intern_wrong_department');
+        return NextResponse.json(
+          { message: 'You can only add interns to your own department' },
+          { status: 403 },
+        );
+      }
+    }
+
     const safeEmail = email.trim().toLowerCase();
 
-    // ── 2. Duplicate check ──────────────────────────────────────────────────
+    // ── 3. Duplicate check ────────────────────────────────────────────────
     type UserCheck = { users: { id: string }[] };
     const existing = await hasura<UserCheck>(
       `query CheckEmail($email: citext!) { users(where: { email: { _eq: $email } }, limit: 1) { id } }`,
@@ -73,9 +86,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'A user with this email already exists' }, { status: 409 });
     }
 
-    // ── 3. Create user (HARSHIL'S BRANCH: random unguessable temp password)
-    //       Intern sets their own password via the emailed link.
-    const tempPass   = `${crypto.randomUUID()}-${Date.now()}`;
+    // ── 4. Create user ────────────────────────────────────────────────────
+    const tempPass     = `${crypto.randomUUID()}-${Date.now()}`;
     const passwordHash = await bcrypt.hash(tempPass, 10);
 
     type InsertUserResult = { insert_users_one: { id: string; name: string; email: string } };
@@ -85,7 +97,7 @@ export async function POST(req: NextRequest) {
     );
     const newUserId = insert_users_one.id;
 
-    // ── 4. Create intern record linked to user ──────────────────────────────
+    // ── 5. Create intern record ───────────────────────────────────────────
     type InsertInternResult = {
       insert_interns_one: {
         id: string; name: string; email: string; status: string;
@@ -109,25 +121,24 @@ export async function POST(req: NextRequest) {
           end_date:      end_date || null,
           status:        status || 'active',
           user_id:       newUserId,
+          created_by:    userId,
         },
       },
     );
 
-    // ── 5. Generate 24-hour password-setup JWT (HARSHIL'S BRANCH) ──────────
+    // ── 6. Password setup email ───────────────────────────────────────────
     const resetToken = jwt.sign(
       { sub: newUserId, email: safeEmail, purpose: 'password_reset' },
       JWT_SECRET,
       { expiresIn: '24h' },
     );
     const resetLink = `${APP_URL}/reset-password?token=${resetToken}`;
-
-    // ── 6. Send welcome email (HARSHIL'S BRANCH) ───────────────────────────
     const { sent, error: emailError } = await sendPasswordSetupEmail(name.trim(), safeEmail, resetLink);
 
     return NextResponse.json({
       intern:    insert_interns_one,
       emailSent: sent,
-      resetLink, // Always returned — admin can share manually if SMTP not configured
+      resetLink,
       ...(emailError && { emailNote: emailError }),
     });
 

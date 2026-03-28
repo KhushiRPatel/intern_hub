@@ -31,7 +31,6 @@ const SECTIONS = [
         ),
       },
       {
-        // ← YOUR BRANCH: Tasks nav item, all roles can see it
         label: 'Tasks',
         href: '/dashboard/tasks',
         roles: ['admin', 'department_person', 'intern'],
@@ -49,7 +48,7 @@ const SECTIONS = [
       {
         label: 'Add Intern',
         href: '/interns/add',
-        roles: ['admin'],
+        roles: ['admin', 'department_person'], // ← added department_person
         icon: (
           <svg className="w-[1.1rem] h-[1.1rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -83,8 +82,7 @@ export default function Sidebar() {
       bg-white dark:bg-slate-950
       border-r border-slate-200 dark:border-slate-800
     ">
-
-      {/* ── Brand ─────────────────────────────────────────────────────────────── */}
+      {/* ── Brand ── */}
       <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
         <div className="w-8 h-8 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-primary-200 dark:shadow-primary-900/40">
           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -92,16 +90,12 @@ export default function Sidebar() {
           </svg>
         </div>
         <div>
-          <span className="font-bold text-[1.05rem] tracking-tight text-slate-900 dark:text-white">
-            InternMS
-          </span>
-          <p className="text-[0.65rem] leading-none mt-0.5 text-slate-400 dark:text-slate-500">
-            Management System
-          </p>
+          <span className="font-bold text-[1.05rem] tracking-tight text-slate-900 dark:text-white">InternMS</span>
+          <p className="text-[0.65rem] leading-none mt-0.5 text-slate-400 dark:text-slate-500">Management System</p>
         </div>
       </div>
 
-      {/* ── Navigation ────────────────────────────────────────────────────────── */}
+      {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {SECTIONS.map((section) => {
           const visibleItems = section.items.filter((item) =>
@@ -111,12 +105,9 @@ export default function Sidebar() {
 
           return (
             <div key={section.label}>
-              <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase
-                text-slate-400 dark:text-slate-600
-              ">
+              <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
                 {section.label}
               </p>
-
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   const active = isActive(item.href);
@@ -133,9 +124,7 @@ export default function Sidebar() {
                     >
                       {item.icon}
                       {item.label}
-                      {active && (
-                        <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />
-                      )}
+                      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
                     </Link>
                   );
                 })}
@@ -145,20 +134,13 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── User card ─────────────────────────────────────────────────────────── */}
+      {/* ── User card ── */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="rounded-xl p-3 flex items-center gap-3
-          bg-slate-50 border border-slate-200
-          dark:bg-slate-900 dark:border-slate-800
-        ">
+        <div className="rounded-xl p-3 flex items-center gap-3 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
           {user && <Avatar name={user.name} size="sm" />}
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate leading-none text-slate-800 dark:text-white">
-              {user?.name}
-            </p>
-            <div className="mt-1">
-              {user?.role && <RoleBadge role={user.role} />}
-            </div>
+            <p className="font-semibold text-sm truncate leading-none text-slate-800 dark:text-white">{user?.name}</p>
+            <div className="mt-1">{user?.role && <RoleBadge role={user.role} />}</div>
           </div>
         </div>
       </div>
