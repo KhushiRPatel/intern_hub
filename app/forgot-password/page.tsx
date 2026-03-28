@@ -10,14 +10,39 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  // For demo/dev mode when SMTP is not configured
+  const [devResetLink, setDevResetLink] = useState('');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setError('');
     setSubmitting(true);
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 1200));
-    setSubmitting(false);
-    setStep('sent');
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+
+      // If SMTP not configured, API returns resetLink for dev/demo use
+      if (data.resetLink) {
+        setDevResetLink(data.resetLink);
+      }
+
+      setStep('sent');
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -27,7 +52,8 @@ export default function ForgotPasswordPage() {
       <div className="absolute top-6 left-6">
         <Link
           href="/login"
-          className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+          className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400
+            hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -53,7 +79,7 @@ export default function ForgotPasswordPage() {
               Forgot password?
             </h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 mb-8 text-center leading-relaxed">
-              No worries. Enter your email and we&apos;ll send reset instructions to your administrator.
+              Enter your email and we&apos;ll send you a password reset link.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -71,8 +97,18 @@ export default function ForgotPasswordPage() {
                   </svg>
                 }
               />
+
+              {error && (
+                <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {error}
+                </p>
+              )}
+
               <Button type="submit" loading={submitting} fullWidth size="lg">
-                {submitting ? 'Sending…' : 'Send Reset Instructions'}
+                {submitting ? 'Sending…' : 'Send Reset Link'}
               </Button>
             </form>
           </>
@@ -89,19 +125,36 @@ export default function ForgotPasswordPage() {
 
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Check your email</h2>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-3 mb-2 leading-relaxed">
-              Reset instructions have been sent to
+              If an account exists for
             </p>
             <p className="font-semibold text-slate-800 dark:text-slate-200 mb-8">{email}</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+              you will receive a password reset link shortly. The link expires in 24 hours.
+            </p>
 
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-400 mb-8 text-left">
-              <p className="font-semibold mb-1">Note</p>
-              <p>Passwords are managed by your organization. Please contact your administrator if you do not receive an email within a few minutes.</p>
-            </div>
+            {/* Dev mode: show reset link when SMTP is not configured */}
+            {devResetLink && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800
+                rounded-xl p-4 text-sm text-left mb-6">
+                <p className="font-semibold text-amber-700 dark:text-amber-400 mb-1">
+                  Dev mode — SMTP not configured
+                </p>
+                <p className="text-amber-600 dark:text-amber-500 text-xs mb-2">
+                  Use this link to reset your password:
+                </p>
+                <Link
+                  href={devResetLink}
+                  className="text-primary-600 dark:text-primary-400 text-xs break-all underline"
+                >
+                  {devResetLink}
+                </Link>
+              </div>
+            )}
 
             <Button
               variant="outline"
               fullWidth
-              onClick={() => { setStep('email'); setEmail(''); }}
+              onClick={() => { setStep('email'); setEmail(''); setDevResetLink(''); }}
             >
               Try a different email
             </Button>

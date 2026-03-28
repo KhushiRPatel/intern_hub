@@ -5,6 +5,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'intern-mgmt-jwt-secret-change-in-p
 
 export interface DecodedToken {
   sub: string;
+  email?: string;
+  name?: string;
+  role?: string;
   'https://hasura.io/jwt/claims': {
     'x-hasura-user-id': string;
     'x-hasura-role': string;
@@ -29,7 +32,8 @@ export function getUserFromToken(decoded: DecodedToken) {
   return {
     userId:       decoded['https://hasura.io/jwt/claims']['x-hasura-user-id'],
     role:         decoded['https://hasura.io/jwt/claims']['x-hasura-role'],
-    departmentId: decoded['https://hasura.io/jwt/claims']['x-hasura-department-id'],
+    departmentId: decoded['https://hasura.io/jwt/claims']['x-hasura-department-id'] || null,
+    email:        decoded.email ?? decoded.sub,   // email claim, falls back to sub
   };
 }
 
@@ -46,9 +50,6 @@ export function checkAuth(request: NextRequest): {
     };
   }
 
-  // ✅ FIX: use decodeToken() which wraps verify() in try/catch and returns
-  //         null on failure — instead of calling jwt.verify() raw which throws
-  //         and leaves `decoded` as the DecodedToken type but never null-checked.
   const decoded = decodeToken(token);
   if (!decoded) {
     return {

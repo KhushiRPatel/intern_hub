@@ -20,6 +20,7 @@ async function hasura<T = unknown>(query: string, variables: Record<string, unkn
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': HASURA_ADMIN },
       body: JSON.stringify({ query, variables }),
+      cache: 'no-store',
     });
     const json = await res.json();
     if (json.errors) throw new Error(json.errors[0].message);
@@ -35,7 +36,6 @@ async function fetchUserFromHasura(email: string) {
     `query GetUser($email: citext!) {
       users(where: { email: { _eq: $email } }, limit: 1) {
         id name email password_hash role department_id
-        department { name }
       }
     }`,
     { email },
@@ -96,25 +96,31 @@ export async function POST(req: NextRequest) {
 
     // ── 1. Try Hasura (real users with hashed passwords) ─────────────────────
     const dbUser = await fetchUserFromHasura(safeEmail);
-    if (dbUser) {
-      const valid = await bcrypt.compare(String(password), dbUser.password_hash);
-      if (valid) {
-        authenticated = {
-          id:              dbUser.id,
-          name:            dbUser.name,
-          email:           dbUser.email,
-          role:            dbUser.role,
-          department_id:   dbUser.department_id ?? null,
-          department_name: dbUser.department?.name ?? null,
-        };
-        // ✅ FIX: upsert real Hasura users too so assigned_by FK never breaks
-        await upsertUser({
-          id:            authenticated.id,
-          name:          authenticated.name,
-          email:         authenticated.email,
-          role:          authenticated.role,
-          department_id: authenticated.department_id,
-        });
+    // Only attempt bcrypt if user exists AND has a stored hash.
+    // A null hash means the account was created without a password (demo upsert) —
+    // in that case we fall through to the demo check below so login still works.
+    if (dbUser && dbUser.password_hash) {
+      try {
+        const valid = await bcrypt.compare(String(password), dbUser.password_hash);
+        if (valid) {
+          authenticated = {
+            id:              dbUser.id,
+            name:            dbUser.name,
+            email:           dbUser.email,
+            role:            dbUser.role,
+            department_id:   dbUser.department_id ?? null,
+            department_name: dbUser.department?.name ?? null,
+          };
+          await upsertUser({
+            id:            authenticated.id,
+            name:          authenticated.name,
+            email:         authenticated.email,
+            role:          authenticated.role,
+            department_id: authenticated.department_id,
+          });
+        }
+      } catch {
+        // bcrypt error (e.g. corrupted hash) — fall through to demo check
       }
     }
 
@@ -122,23 +128,25 @@ export async function POST(req: NextRequest) {
     if (!authenticated) {
       const demo = DEMO_USERS.find(u => u.email === safeEmail && u.password === String(password));
       if (demo) {
-        // Look up the real DB id by email first — init.sql seeds users with
-        // gen_random_uuid() so the hardcoded demo IDs never match the DB.
         const existing = await fetchUserFromHasura(safeEmail);
         const realId   = existing?.id ?? demo.id;
+        // Use the name already saved in the DB if it exists — this preserves any
+        // name the user updated via Settings. Fall back to the demo default only
+        // when the user has no DB row yet.
+        const realName = existing?.name ?? demo.name;
 
         authenticated = {
-          id:              realId,   // ← real DB uuid, not hardcoded
-          name:            demo.name,
+          id:              realId,
+          name:            realName,
           email:           demo.email,
           role:            demo.role,
           department_id:   demo.department_id,
           department_name: demo.department_name,
         };
-        // Upsert with the real id so the record definitely exists
+        // Upsert so the record exists, but preserve the user's updated name
         await upsertUser({
           id:            realId,
-          name:          demo.name,
+          name:          realName,
           email:         demo.email,
           role:          demo.role,
           department_id: demo.department_id,
