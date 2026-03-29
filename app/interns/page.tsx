@@ -174,7 +174,7 @@ export default function InternsPage() {
     if (status) conditions.push({ status: { _eq: status } });
     return conditions.length === 0 ? {}
       : conditions.length === 1 ? conditions[0]
-      : { _and: conditions };
+        : { _and: conditions };
   };
 
   const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(GET_INTERNS, {
