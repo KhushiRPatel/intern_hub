@@ -1,7 +1,10 @@
 'use client';
+import { useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { Avatar } from '@/app/components/ui/Avatar';
 import { RoleBadge } from '@/app/components/ui/Badge';
+import { Button } from '@/app/components/ui/Button';
+import { InternProfileModal } from '@/app/components/profile/InternProfileModal';
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -22,6 +25,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   if (!user) {
     return (
@@ -41,9 +45,14 @@ export default function ProfilePage() {
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-5 animate-[fade-in_0.3s_ease]">
 
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">My Profile</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Your account details</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">My Profile</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Your account details</p>
+        </div>
+        {user.role === 'intern' && user.intern_id && (
+          <Button onClick={() => setIsModalOpen(true)}>Update Profile</Button>
+        )}
       </div>
 
       {/* Profile card */}
@@ -128,6 +137,14 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
+
+      {user.role === 'intern' && user.intern_id && (
+        <InternProfileModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          internId={user.intern_id} 
+        />
+      )}
     </div>
   );
 }
