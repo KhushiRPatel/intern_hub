@@ -17,9 +17,14 @@ export const GET_INTERNS = gql`
       name
       email
       phone
+      alternate_phone
       college
+      university
+      college_email
       degree
       branch
+      specialization
+      graduation_year
       status
       start_date
       end_date
@@ -40,9 +45,14 @@ export const GET_INTERN_BY_ID = gql`
       name
       email
       phone
+      alternate_phone
       college
+      university
+      college_email
       degree
       branch
+      specialization
+      graduation_year
       status
       start_date
       end_date

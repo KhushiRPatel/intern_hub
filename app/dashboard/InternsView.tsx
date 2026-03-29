@@ -10,6 +10,12 @@ import {
 } from '@/graphql/queries';
 import InternTable from '@/app/components/InternList/page';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
+import {
+  internFormValuesToCreateApiBody,
+  internFormValuesToDemoPayload,
+  internFormValuesToHasuraUpdateSet,
+  resolveInternFormDepartmentId,
+} from '@/lib/internForm';
 import { FilterBar } from './FilterBar';
 import { DeleteModal } from './DeleteModal';
 
@@ -90,34 +96,20 @@ export function InternsView() {
   const handleFormSubmit = async (values: InternFormValues) => {
     setFormBusy(true);
     try {
+      const department_id = resolveInternFormDepartmentId(values, {
+        isDeptPerson: user?.role === 'department_person',
+        userDepartmentId: user?.department_id,
+      });
+      const demoPayload = internFormValuesToDemoPayload(values, department_id);
+      const apiPayload = internFormValuesToCreateApiBody(values, department_id);
+      const hasuraSet = internFormValuesToHasuraUpdateSet(values, department_id);
+
       if (IS_DEMO) {
         if (editTarget) {
-          demoStore.update(editTarget.id, {
-            name:          values.name.trim(),
-            email:         values.email.trim().toLowerCase(),
-            phone:         values.phone || undefined,
-            college:       values.college.trim(),
-            degree:        '',
-            branch:        '',
-            department_id: values.department_id,
-            start_date:    values.start_date,
-            end_date:      values.end_date || undefined,
-            status:        values.status,
-          });
+          demoStore.update(editTarget.id, demoPayload);
           showToast(`${values.name} updated successfully`);
         } else {
-          demoStore.create({
-            name:          values.name.trim(),
-            email:         values.email.trim().toLowerCase(),
-            phone:         values.phone || undefined,
-            college:       values.college.trim(),
-            degree:        '',
-            branch:        '',
-            department_id: values.department_id,
-            start_date:    values.start_date,
-            end_date:      values.end_date || undefined,
-            status:        values.status,
-          });
+          demoStore.create(demoPayload);
           showToast(`${values.name} added successfully`);
         }
         setDemoRefresh((n) => n + 1);
@@ -130,17 +122,8 @@ export function InternsView() {
               'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
-              id:            editTarget.id,
-              name:          values.name.trim(),
-              email:         values.email.trim().toLowerCase(),
-              phone:         values.phone || null,
-              college:       values.college.trim(),
-              degree:        '',
-              branch:        '',
-              department_id: values.department_id,
-              start_date:    values.start_date,
-              end_date:      values.end_date || null,
-              status:        values.status,
+              id: editTarget.id,
+              ...hasuraSet,
             }),
           });
           if (!res.ok) {
@@ -156,18 +139,7 @@ export function InternsView() {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({
-              name:          values.name.trim(),
-              email:         values.email.trim().toLowerCase(),
-              phone:         values.phone || null,
-              college:       values.college.trim(),
-              degree:        '',
-              branch:        '',
-              department_id: values.department_id,
-              start_date:    values.start_date,
-              end_date:      values.end_date || null,
-              status:        values.status,
-            }),
+            body: JSON.stringify(apiPayload),
           });
           if (!res.ok) {
             const data = await res.json();

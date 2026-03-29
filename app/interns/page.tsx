@@ -8,10 +8,17 @@ import { GET_INTERNS, GET_DEPARTMENTS, GET_COLLEGES } from '@/graphql/queries';
 import { UPDATE_INTERN, DELETE_INTERN } from '@/graphql/mutations';
 import InternTable from '@/app/components/InternList/page';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
+import {
+  internFormValuesToCreateApiBody,
+  internFormValuesToDemoPayload,
+  internFormValuesToHasuraUpdateSet,
+  resolveInternFormDepartmentId,
+} from '@/lib/internForm';
 import { Button } from '@/app/components/ui/Button';
 import { Input, Select } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
 import ImportModal from '@/app/components/ImportModal';
+import ExportInternsModal from '@/app/components/ExportInternsModal';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
@@ -133,6 +140,7 @@ export default function InternsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [editTarget, setEditTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formBusy, setFormBusy] = useState(false);
@@ -203,56 +211,38 @@ export default function InternsPage() {
   const handleFormSubmit = async (values: InternFormValues) => {
     setFormBusy(true);
     try {
-      const basePayload = {
-        name: values.name.trim(), email: values.email.trim().toLowerCase(),
-        phone: values.phone || undefined, college: values.college.trim(),
-        degree: values.degree.trim(), branch: values.branch.trim(),
-        department_id: values.department_id, start_date: values.start_date,
-        end_date: values.end_date || undefined, status: values.status,
-      };
+      const department_id = resolveInternFormDepartmentId(values, {
+        isDeptPerson: user?.role === 'department_person',
+        userDepartmentId: user?.department_id,
+      });
+      const demoPayload = internFormValuesToDemoPayload(values, department_id);
 
       if (IS_DEMO) {
         if (editTarget) {
-          demoStore.update(editTarget.id, basePayload);
+          demoStore.update(editTarget.id, demoPayload);
           showToast(`${values.name} updated`);
         } else {
-          demoStore.create(basePayload);
+          demoStore.create(demoPayload);
           showToast(`${values.name} added — demo mode`);
         }
         setDemoRefresh(n => n + 1);
       } else {
         if (editTarget) {
-          // Edit: GraphQL mutation (no password/account changes needed)
           await updateMutation({
             variables: {
               id: editTarget.id,
-              set: {
-                name: basePayload.name, phone: basePayload.phone ?? null,
-                college: basePayload.college, degree: basePayload.degree,
-                branch: basePayload.branch, department_id: basePayload.department_id,
-                start_date: basePayload.start_date, end_date: basePayload.end_date ?? null,
-                status: basePayload.status,
-              },
+              set: internFormValuesToHasuraUpdateSet(values, department_id),
             },
           });
           showToast(`${values.name} updated`);
         } else {
-          // ✅ FIX: Authorization header added so checkAuth() passes
           const res = await fetch('/api/interns/create', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({
-              name: basePayload.name, email: basePayload.email,
-              phone: basePayload.phone ?? null, college: basePayload.college,
-              degree: basePayload.degree, branch: basePayload.branch,
-              department_id: basePayload.department_id,
-              start_date: basePayload.start_date,
-              end_date: basePayload.end_date ?? null,
-              status: basePayload.status,
-            }),
+            body: JSON.stringify(internFormValuesToCreateApiBody(values, department_id)),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Failed to add intern');
@@ -301,31 +291,52 @@ export default function InternsPage() {
             {interns.length} intern{interns.length !== 1 ? 's' : ''} found
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowImport(true)}
-              leftIcon={
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              }
-            >
-              Import Excel
-            </Button>
-            <Button
-              onClick={() => { setEditTarget(null); setShowForm(true); }}
-              leftIcon={
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              }
-            >
-              Add Intern
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowExport(true)}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12M12 7.5v9"
+                />
+              </svg>
+            }
+          >
+            Export Excel
+          </Button>
+          {isAdmin && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => setShowImport(true)}
+                leftIcon={
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                }
+              >
+                Import Excel
+              </Button>
+              <Button
+                onClick={() => { setEditTarget(null); setShowForm(true); }}
+                leftIcon={
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                }
+              >
+                Add Intern
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Filters ── */}
@@ -378,6 +389,13 @@ export default function InternsPage() {
           else refetch();
           showToast('Interns imported successfully');
         }}
+      />
+
+      <ExportInternsModal
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        interns={interns}
+        departments={depts}
       />
 
       {toast && <Toast msg={toast.msg} type={toast.type} />}

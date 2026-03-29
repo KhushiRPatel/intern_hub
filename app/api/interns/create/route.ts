@@ -41,16 +41,46 @@ export async function POST(req: NextRequest) {
       name: string;
       email: string;
       phone?: string | null;
+      alternate_phone?: string | null;
       college: string;
+      university?: string | null;
+      college_email?: string | null;
       degree: string;
       branch: string;
+      specialization?: string | null;
+      graduation_year?: number | string | null;
       department_id: string;
       start_date: string;
       end_date?: string | null;
       status?: string;
     };
 
-    const { name, email, phone, college, degree, branch, department_id, start_date, end_date, status } = body;
+    const {
+      name,
+      email,
+      phone,
+      alternate_phone,
+      college,
+      university,
+      college_email,
+      degree,
+      branch,
+      specialization,
+      graduation_year: graduationYearRaw,
+      department_id,
+      start_date,
+      end_date,
+      status,
+    } = body;
+
+    let graduation_year: number | null = null;
+    if (graduationYearRaw !== undefined && graduationYearRaw !== null && graduationYearRaw !== '') {
+      const n =
+        typeof graduationYearRaw === 'number'
+          ? graduationYearRaw
+          : parseInt(String(graduationYearRaw), 10);
+      if (Number.isInteger(n) && n >= 1900 && n <= 2100) graduation_year = n;
+    }
 
     if (!name || !email || !college || !degree || !branch || !department_id || !start_date) {
       return NextResponse.json(
@@ -109,18 +139,26 @@ export async function POST(req: NextRequest) {
       }`,
       {
         obj: {
-          name:          name.trim(),
-          email:         safeEmail,
-          phone:         phone || null,
-          college:       college.trim(),
-          degree:        degree.trim(),
-          branch:        branch.trim(),
+          name:              name.trim(),
+          email:             safeEmail,
+          phone:             phone || null,
+          alternate_phone:   alternate_phone?.trim() || null,
+          college:           college.trim(),
+          university:        university?.trim() || null,
+          college_email:     (() => {
+            const t = college_email?.trim();
+            return t ? t.toLowerCase() : null;
+          })(),
+          degree:            degree.trim(),
+          branch:            branch.trim(),
+          specialization:    specialization?.trim() || null,
+          graduation_year:   graduation_year ?? null,
           department_id,
           start_date,
-          end_date:      end_date || null,
-          status:        status || 'active',
-          user_id:       newUserId,
-          created_by:    userId,
+          end_date:          end_date || null,
+          status:            status || 'active',
+          user_id:           newUserId,
+          created_by:        userId,
         },
       },
     );

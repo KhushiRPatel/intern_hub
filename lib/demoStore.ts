@@ -49,8 +49,14 @@ export const demoStore = {
                 i.name.toLowerCase().includes(filters.search!.toLowerCase())
             );
 
+        /* Filter bar uses department UUID; legacy demo data may only have department.name */
         if (filters?.department)
-            list = list.filter((i) => i.department?.name === filters.department);
+            list = list.filter(
+                (i) =>
+                    i.department_id === filters.department ||
+                    i.department?.id === filters.department ||
+                    i.department?.name === filters.department,
+            );
 
         if (filters?.college)
             list = list.filter((i) =>

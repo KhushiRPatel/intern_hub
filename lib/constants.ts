@@ -11,9 +11,14 @@ export interface InternData {
     name: string;
     email: string;
     phone?: string;
+    alternate_phone?: string | null;
     college: string;
+    university?: string | null;
+    college_email?: string | null;
     degree?: string;
     branch?: string;
+    specialization?: string | null;
+    graduation_year?: number | null;
     department_id: string;
     department?: { id: string; name: string };
     start_date: string;
