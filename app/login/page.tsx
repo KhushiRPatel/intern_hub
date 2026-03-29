@@ -174,11 +174,19 @@ export default function LoginPage() {
             <div className="space-y-1 text-xs text-slate-500 dark:text-slate-500">
               <div className="flex justify-between">
                 <span>Admin:</span>
-                <code className="text-slate-700 dark:text-slate-300">admin@company.com / Admin@1234</code>
+                <code className="text-slate-700 dark:text-slate-300">admin@company.com / admin123</code>
+              </div>
+              <div className="flex justify-between">
+                <span>Dept.Person (AI):</span>
+                <code className="text-slate-700 dark:text-slate-300">ra.ai@student.com / dept123</code>
+              </div>
+              <div className="flex justify-between">
+                <span>Dept.Person (PHP):</span>
+                <code className="text-slate-700 dark:text-slate-300">priya.php@company.com / dept123</code>
               </div>
               <div className="flex justify-between">
                 <span>Intern:</span>
-                <code className="text-slate-700 dark:text-slate-300">raj.ai@company.com / Intern@1234</code>
+                <code className="text-slate-700 dark:text-slate-300">john.intern@student.com / intern123</code>
               </div>
             </div>
           </div>
