@@ -124,7 +124,7 @@ function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
 
 /* ── Main page ──────────────────────────────────────────────────────────────── */
 export default function InternsPage() {
-  const { user, token } = useAuth(); // ← token added
+  const { user, token, isLoading } = useAuth();
 
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState('');
@@ -160,19 +160,26 @@ export default function InternsPage() {
 
   /* ── GraphQL ── */
   const buildWhere = () => {
-    const where: Record<string, unknown> = {};
-    if (user?.role === 'intern') where.user_id = { _eq: user.id };
-    if (user?.role === 'department_person') where.department_id = { _eq: user.department_id };
-    if (search) where.name = { _ilike: `%${search}%` };
-    if (dept) where.department_id = { _eq: dept };
-    if (college) where.college = { _ilike: `%${college}%` };
-    if (status) where.status = { _eq: status };
-    return where;
+    const conditions: Record<string, unknown>[] = [];
+    // Role-based row restriction (must not be overridden by filter bar)
+    if (user?.role === 'intern' && user.id) {
+      conditions.push({ user_id: { _eq: user.id } });
+    } else if (user?.role === 'department_person' && user.department_id) {
+      conditions.push({ department_id: { _eq: user.department_id } });
+    }
+    if (search) conditions.push({ name: { _ilike: `%${search}%` } });
+    // dept filter only applies to admin — dept_person is already scoped to their dept
+    if (dept && user?.role === 'admin') conditions.push({ department_id: { _eq: dept } });
+    if (college) conditions.push({ college: { _ilike: `%${college}%` } });
+    if (status) conditions.push({ status: { _eq: status } });
+    return conditions.length === 0 ? {}
+      : conditions.length === 1 ? conditions[0]
+        : { _and: conditions };
   };
 
   const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(GET_INTERNS, {
     variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
-    skip: IS_DEMO,
+    skip: IS_DEMO || isLoading,
   });
   const { data: deptData } = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
   const { data: collegeData } = useQuery(GET_COLLEGES, { skip: IS_DEMO });
@@ -281,7 +288,7 @@ export default function InternsPage() {
   const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
 
   const isAdmin = user?.role === 'admin';
-  const showDept = user?.role !== 'intern';
+  const showDept = user?.role === 'admin';
 
   return (
     <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
