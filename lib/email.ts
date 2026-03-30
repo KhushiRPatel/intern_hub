@@ -49,41 +49,103 @@ export async function sendPasswordSetupEmail(
 }
 
 function buildEmailHtml(name: string, resetLink: string): string {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Welcome to InternMS</title></head>
-<body style="font-family:Inter,-apple-system,sans-serif;background:#f0effe;padding:40px 20px;margin:0;">
-  <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(79,70,229,0.1);">
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Welcome to InternMS</title>
+</head>
 
-    <div style="background:linear-gradient(135deg,#3730a3,#4f46e5,#7c3aed);padding:40px;text-align:center;">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(255,255,255,0.15);border-radius:16px;margin-bottom:16px;font-size:32px;">👤</div>
-      <h1 style="color:#fff;font-size:24px;font-weight:800;margin:0 0 8px;letter-spacing:-0.5px;">Welcome to InternMS</h1>
-      <p style="color:rgba(255,255,255,0.7);margin:0;font-size:15px;">Your intern account has been created</p>
-    </div>
+<body style="margin:0;padding:0;background:#f6f7fb;font-family:Inter,Segoe UI,Arial,sans-serif;">
 
-    <div style="padding:40px;">
-      <p style="color:#1e1b4b;font-size:16px;margin:0 0 12px;">Hi <strong>${name}</strong>,</p>
-      <p style="color:#6b7280;font-size:15px;line-height:1.6;margin:0 0 28px;">
-        An account has been created for you on <strong>InternMS</strong>. Click the button below to set your password and access your dashboard.
-      </p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 15px;">
+    <tr>
+      <td align="center">
 
-      <div style="text-align:center;margin:32px 0;">
-        <a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;text-decoration:none;padding:14px 36px;border-radius:12px;font-size:15px;font-weight:700;box-shadow:0 4px 14px rgba(79,70,229,0.35);">
-          Set Your Password →
-        </a>
-      </div>
+        <!-- Container -->
+        <table width="100%" max-width="520px" cellpadding="0" cellspacing="0"
+          style="background:#ffffff;border-radius:18px;overflow:hidden;
+          box-shadow:0 10px 30px rgba(0,0,0,0.08);">
 
-      <div style="background:#f5f3ff;border-radius:10px;padding:16px;margin:24px 0;">
-        <p style="color:#6d6a8a;font-size:12px;margin:0 0 6px;">Or copy this link into your browser:</p>
-        <p style="color:#4f46e5;font-size:12px;word-break:break-all;margin:0;font-family:monospace;">${resetLink}</p>
-      </div>
+          <!-- Header -->
+          <tr>
+            <td align="center"
+              style="background:linear-gradient(135deg,#4f46e5,#7c3aed);
+              padding:40px 20px;color:#ffffff;">
 
-      <p style="color:#9ca3af;font-size:13px;margin:0;border-top:1px solid #e5e7eb;padding-top:20px;">
-        ⏰ This link expires in <strong>24 hours</strong>.<br>
-        If you weren't expecting this, you can safely ignore this email.
-      </p>
-    </div>
-  </div>
+              <div style="font-size:40px;margin-bottom:10px;">🚀</div>
+
+              <h1 style="margin:0;font-size:24px;font-weight:800;">
+                Welcome to InternMS
+              </h1>
+
+              <p style="margin-top:8px;font-size:14px;opacity:0.85;">
+                Your journey starts here
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:35px 30px;">
+
+              <p style="margin:0 0 10px;font-size:16px;color:#111827;">
+                Hi <strong>${name}</strong>,
+              </p>
+
+              <p style="margin:0 0 20px;color:#6b7280;font-size:15px;line-height:1.6;">
+                Your InternMS account has been successfully created.
+                Click the button below to set your password and access your dashboard.
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align:center;margin:30px 0;">
+                <a href="${resetLink}"
+                  style="display:inline-block;
+                  background:linear-gradient(135deg,#4f46e5,#7c3aed);
+                  color:#ffffff;
+                  padding:14px 32px;
+                  font-size:15px;
+                  font-weight:600;
+                  border-radius:10px;
+                  text-decoration:none;
+                  box-shadow:0 6px 18px rgba(79,70,229,0.3);">
+                  Set Your Password →
+                </a>
+              </div>
+
+              <!-- Divider -->
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:25px 0;" />
+
+              <!-- Info -->
+              <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
+                ⏳ This link will expire in <strong>24 hours</strong>.<br/>
+                If you didn’t request this, you can safely ignore this email.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center"
+              style="padding:20px;background:#f9fafb;font-size:12px;color:#9ca3af;">
+              
+              © ${new Date().getFullYear()} InternMS <br/>
+              Built for smarter internship management
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
 </body>
-</html>`;
+</html>
+`;
 }
