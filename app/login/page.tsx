@@ -62,18 +62,7 @@ export default function LoginPage() {
           </p>
 
           {/* Stats */}
-          <div className="mt-12 grid grid-cols-3 gap-4">
-            {[
-              { label: 'Departments', value: '8+' },
-              { label: 'Interns Tracked', value: '100+' },
-              { label: 'Roles Supported', value: '3' },
-            ].map((s) => (
-              <div key={s.label} className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-                <p className="text-2xl font-bold text-primary-400">{s.value}</p>
-                <p className="text-xs text-slate-500 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
+          
         </div>
       </div>
 

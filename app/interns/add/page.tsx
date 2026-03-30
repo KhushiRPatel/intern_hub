@@ -7,6 +7,11 @@ import { useAuth } from '@/app/context/AuthContext';
 import { demoStore } from '@/lib/demoStore';
 import { DEMO_DEPARTMENTS, DepartmentData } from '@/lib/constants';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
+import {
+  internFormValuesToCreateApiBody,
+  internFormValuesToDemoPayload,
+  resolveInternFormDepartmentId,
+} from '@/lib/internForm';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
@@ -67,24 +72,13 @@ export default function AddInternPage() {
     setSubmitting(true);
     setError('');
     try {
-      // For department_person — force their own department_id
-      const department_id = isDeptPerson && user?.department_id
-        ? user.department_id
-        : values.department_id;
+      const department_id = resolveInternFormDepartmentId(values, {
+        isDeptPerson: isDeptPerson,
+        userDepartmentId: user?.department_id,
+      });
 
       if (IS_DEMO) {
-        demoStore.create({
-          name:          values.name.trim(),
-          email:         values.email.trim().toLowerCase(),
-          phone:         values.phone || undefined,
-          college:       values.college.trim(),
-          degree:        values.degree?.trim() ?? '',
-          branch:        values.branch?.trim() ?? '',
-          department_id,
-          start_date:    values.start_date,
-          end_date:      values.end_date || undefined,
-          status:        values.status,
-        });
+        demoStore.create(internFormValuesToDemoPayload(values, department_id));
         router.push('/interns');
         return;
       }
@@ -95,18 +89,7 @@ export default function AddInternPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name:          values.name.trim(),
-          email:         values.email.trim().toLowerCase(),
-          phone:         values.phone ?? null,
-          college:       values.college.trim(),
-          degree:        values.degree?.trim() ?? '',
-          branch:        values.branch?.trim() ?? '',
-          department_id,
-          start_date:    values.start_date,
-          end_date:      values.end_date ?? null,
-          status:        values.status,
-        }),
+        body: JSON.stringify(internFormValuesToCreateApiBody(values, department_id)),
       });
 
       const data = await resJsonSafe<{ message?: string }>(res).catch((e) => {
@@ -124,22 +107,23 @@ export default function AddInternPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
+    <div className="max-w-6xl mx-auto px-2 sm:px-4 pb-12">
+      <div className="mb-8">
         <button
+          type="button"
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-4"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-5"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </button>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Add New Intern</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Add new intern</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
           {isDeptPerson
-            ? `Adding intern to your department · ${departments[0]?.name ?? ''}`
-            : 'Fill in the details to register a new intern'}
+            ? `Interns are added under ${departments[0]?.name ?? 'your department'}. Complete each section below.`
+            : 'Capture personal, academic, and placement details. Required fields are marked with an asterisk.'}
         </p>
       </div>
 

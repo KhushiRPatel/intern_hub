@@ -8,6 +8,7 @@ Using Vanna 2.0 (Agentic Framework) Legacy Adapter for compatibility.
 
 import os
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -15,7 +16,8 @@ from groq import Groq
 from vanna.legacy.chromadb import ChromaDB_VectorStore
 from vanna.legacy.base import VannaBase
 
-load_dotenv()
+# Always load chatbot-backend/.env, even if command runs from a different cwd.
+load_dotenv(dotenv_path=Path(__file__).resolve().with_name('.env'))
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -83,9 +85,9 @@ def connect_to_postgres() -> None:
     """Connect Vanna instance to Postgres."""
     host     = os.getenv("DB_HOST",     "localhost")
     port     = int(os.getenv("DB_PORT", "5432"))
-    dbname   = os.getenv("DB_NAME",     "internhub")
-    user     = os.getenv("DB_USER",     "postgres")
-    password = os.getenv("DB_PASSWORD", "Raj@2006")
+    dbname   = os.getenv("DB_NAME",     "intern_management")
+    user     = os.getenv("DB_USER",     "chatbot")
+    password = os.getenv("DB_PASSWORD", "chatbot123")
 
     logger.info(f"Connecting to Postgres db: {dbname} at {host}:{port}")
     vn.connect_to_postgres(

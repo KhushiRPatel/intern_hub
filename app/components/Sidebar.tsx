@@ -79,13 +79,25 @@ const SECTIONS = [
   },
 ];
 
+const NAV_HREFS = SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+
+function navHrefMatchesPath(href: string, pathname: string): boolean {
+  if (href === '/dashboard') return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 /* ── Component ──────────────────────────────────────────────────────────────── */
 export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
 
-  const isActive = (href: string) =>
-    pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+  const matchingHrefs = NAV_HREFS.filter((h) => navHrefMatchesPath(h, pathname));
+  const activeHref =
+    matchingHrefs.length > 0
+      ? matchingHrefs.reduce((a, b) => (a.length >= b.length ? a : b))
+      : null;
+
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <aside className="w-64 flex flex-col shrink-0 h-full overflow-hidden

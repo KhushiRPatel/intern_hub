@@ -26,8 +26,25 @@ export async function POST(req: NextRequest) {
     const { userId, role, departmentId } = getUserFromToken(authCheck.decoded);
 
     const body = await req.json();
-    const { id, name, email, phone, college, degree, branch,
-            department_id, start_date, end_date, status, ...extraFields } = body;
+    const {
+      id,
+      name,
+      email,
+      phone,
+      alternate_phone,
+      college,
+      university,
+      college_email,
+      degree,
+      branch,
+      specialization,
+      graduation_year,
+      department_id,
+      start_date,
+      end_date,
+      status,
+      ...extraFields
+    } = body;
 
     if (!id) return NextResponse.json({ message: 'Intern ID is required' }, { status: 400 });
 
@@ -52,9 +69,33 @@ export async function POST(req: NextRequest) {
       if (name)            { internSet.name = name.trim();                    userSet.name = name.trim(); }
       if (email)           { internSet.email = email.trim().toLowerCase();    userSet.email = email.trim().toLowerCase(); }
       if (phone !== undefined) { internSet.phone = phone;                     userSet.phone = phone; }
+      if (alternate_phone !== undefined) {
+        internSet.alternate_phone = typeof alternate_phone === 'string' && alternate_phone.trim()
+          ? alternate_phone.trim()
+          : null;
+      }
       if (college)         internSet.college       = college.trim();
+      if (university !== undefined) {
+        internSet.university = typeof university === 'string' && university.trim() ? university.trim() : null;
+      }
+      if (college_email !== undefined) {
+        const ce = typeof college_email === 'string' ? college_email.trim() : '';
+        internSet.college_email = ce ? ce.toLowerCase() : null;
+      }
       if (degree)          internSet.degree        = degree.trim();
       if (branch)          internSet.branch        = branch.trim();
+      if (specialization !== undefined) {
+        internSet.specialization =
+          typeof specialization === 'string' && specialization.trim() ? specialization.trim() : null;
+      }
+      if (graduation_year !== undefined) {
+        internSet.graduation_year =
+          graduation_year === null || graduation_year === ''
+            ? null
+            : typeof graduation_year === 'number'
+              ? graduation_year
+              : parseInt(String(graduation_year), 10);
+      }
       if (department_id)   { internSet.department_id = department_id;         userSet.department_id = department_id; }
       if (start_date)      internSet.start_date    = start_date;
       if (end_date !== undefined) internSet.end_date = end_date;
@@ -69,9 +110,33 @@ export async function POST(req: NextRequest) {
       // Can update all fields except email (to avoid auth issues)
       if (name)            { internSet.name = name.trim();                    userSet.name = name.trim(); }
       if (phone !== undefined) { internSet.phone = phone;                     userSet.phone = phone; }
+      if (alternate_phone !== undefined) {
+        internSet.alternate_phone = typeof alternate_phone === 'string' && alternate_phone.trim()
+          ? alternate_phone.trim()
+          : null;
+      }
       if (college)         internSet.college       = college.trim();
+      if (university !== undefined) {
+        internSet.university = typeof university === 'string' && university.trim() ? university.trim() : null;
+      }
+      if (college_email !== undefined) {
+        const ce = typeof college_email === 'string' ? college_email.trim() : '';
+        internSet.college_email = ce ? ce.toLowerCase() : null;
+      }
       if (degree)          internSet.degree        = degree.trim();
       if (branch)          internSet.branch        = branch.trim();
+      if (specialization !== undefined) {
+        internSet.specialization =
+          typeof specialization === 'string' && specialization.trim() ? specialization.trim() : null;
+      }
+      if (graduation_year !== undefined) {
+        internSet.graduation_year =
+          graduation_year === null || graduation_year === ''
+            ? null
+            : typeof graduation_year === 'number'
+              ? graduation_year
+              : parseInt(String(graduation_year), 10);
+      }
       if (department_id)   { internSet.department_id = department_id;         userSet.department_id = department_id; }
       if (start_date)      internSet.start_date    = start_date;
       if (end_date !== undefined) internSet.end_date = end_date;
