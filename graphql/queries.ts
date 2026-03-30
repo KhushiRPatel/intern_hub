@@ -219,3 +219,38 @@ export const GET_TASK_ACTIVITY = gql`
     }
   }
 `;
+
+export const GET_INTERN_PROFILE = gql`
+  query GetInternProfile($id: uuid!) {
+    interns_by_pk(id: $id) {
+      id
+      phone
+      alternate_phone
+      date_of_birth
+      gender
+      blood_group
+      nationality
+      aadhar_number
+      pan_number
+      address_line1
+      address_line2
+      city
+      state
+      pincode
+      country
+      college
+      university
+      degree
+      branch
+      specialization
+      graduation_year
+      current_year
+      cgpa
+      percentage
+      student_id
+      linkedin_url
+      github_url
+      portfolio_url
+    }
+  }
+`;

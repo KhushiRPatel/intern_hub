@@ -3,6 +3,23 @@ const HASURA_URL   = 'http://localhost:8080';
 const ADMIN_SECRET = 'myadminsecret'; // ← your HASURA_ADMIN_SECRET value
 
 async function apply(type, table, role, permission) {
+  const dropType = type.replace('create', 'drop');
+  await fetch(`${HASURA_URL}/v1/metadata`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':          'application/json',
+      'x-hasura-admin-secret': ADMIN_SECRET,
+    },
+    body: JSON.stringify({
+      type: dropType,
+      args: {
+        source: 'default',
+        table:  { schema: 'public', name: table },
+        role,
+      },
+    }),
+  });
+
   const res = await fetch(`${HASURA_URL}/v1/metadata`, {
     method: 'POST',
     headers: {
@@ -67,8 +84,11 @@ const updates = [
   ],
   ['interns', 'intern',
     { user_id: { _eq: 'X-Hasura-User-Id' } },
-    ['phone', 'linkedin_url', 'github_url', 'portfolio_url',
-     'address_line1', 'address_line2', 'city', 'state', 'pincode']
+    ['phone', 'alternate_phone', 'date_of_birth', 'gender', 'blood_group',
+     'nationality', 'aadhar_number', 'pan_number', 'address_line1', 'address_line2',
+     'city', 'state', 'pincode', 'country', 'college', 'university', 'degree', 'branch',
+     'specialization', 'graduation_year', 'current_year', 'cgpa', 'percentage',
+     'student_id', 'linkedin_url', 'github_url', 'portfolio_url']
   ],
   ['users', 'admin',             {}, '*'],
   ['users', 'department_person', { id: { _eq: 'X-Hasura-User-Id' } }, ['name', 'phone', 'department_id']],
