@@ -81,12 +81,12 @@ export const GET_COLLEGES = gql`
 `;
 
 export const GET_DASHBOARD_STATS = gql`
-  query GetDashboardStats {
-    total:      interns_aggregate                                         { aggregate { count } }
-    active:     interns_aggregate(where: { status: { _eq: "active"     } }) { aggregate { count } }
-    completed:  interns_aggregate(where: { status: { _eq: "completed"  } }) { aggregate { count } }
-    terminated: interns_aggregate(where: { status: { _eq: "terminated" } }) { aggregate { count } }
-    dept_count: departments_aggregate                                     { aggregate { count } }
+  query GetDashboardStats($where: interns_bool_exp = {}) {
+    total:      interns_aggregate(where: $where)                                                              { aggregate { count } }
+    active:     interns_aggregate(where: { _and: [$where, { status: { _eq: "active"     } }] })              { aggregate { count } }
+    completed:  interns_aggregate(where: { _and: [$where, { status: { _eq: "completed"  } }] })              { aggregate { count } }
+    terminated: interns_aggregate(where: { _and: [$where, { status: { _eq: "terminated" } }] })              { aggregate { count } }
+    dept_count: departments_aggregate                                                                         { aggregate { count } }
   }
 `;
 
@@ -224,6 +224,14 @@ export const GET_INTERN_PROFILE = gql`
   query GetInternProfile($id: uuid!) {
     interns_by_pk(id: $id) {
       id
+      name
+      email
+      status
+      start_date
+      end_date
+      department_id
+      college
+      university
       phone
       alternate_phone
       date_of_birth
@@ -238,8 +246,6 @@ export const GET_INTERN_PROFILE = gql`
       state
       pincode
       country
-      college
-      university
       degree
       branch
       specialization

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@apollo/client/react";
 import { useAuth } from "@/app/context/AuthContext";
@@ -61,7 +61,17 @@ export default function AddDepartmentPersonPage() {
     email: string;
     tempPassword?: string;
     resetLink?: string;
+    emailSent?: boolean;
+    emailNote?: string;
   } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = useCallback((link: string) => {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
 
   const set =
     (field: keyof FormValues) =>
@@ -125,6 +135,8 @@ export default function AddDepartmentPersonPage() {
         email: form.email.trim().toLowerCase(),
         tempPassword: data.credentials?.tempPassword,
         resetLink: data.resetLink,
+        emailSent: data.emailSent,
+        emailNote: data.emailNote,
       });
       setForm({ name: "", email: "", department_id: "" });
     } catch (err) {
@@ -199,35 +211,83 @@ export default function AddDepartmentPersonPage() {
 
       {/* ── Success card ── */}
       {success && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-900 px-4 py-4 rounded-xl text-sm space-y-1">
-          <p className="font-semibold text-green-800">
-            ✓ Department person created
-          </p>
-          <p>
-            Email: <span className="font-mono">{success.email}</span>
-          </p>
-          {success.tempPassword && (
-            <p>
-              Temp password:{" "}
-              <span className="font-mono">{success.tempPassword}</span>
-            </p>
-          )}
-          {success.resetLink && (
-            <div className="mt-2">
-              <p className="text-xs text-green-700 mb-1">
-                Password setup link (share if email not configured):
-              </p>
-              <p className="font-mono text-xs break-all bg-green-100 px-2 py-1 rounded">
-                {success.resetLink}
-              </p>
+        <div className="mb-6 rounded-xl border text-sm overflow-hidden shadow-sm">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white">
+            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="font-semibold">Department person created successfully!</p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-green-200 dark:border-green-800 rounded-b-xl px-4 py-4 space-y-3">
+            {/* Account info */}
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400 w-16 shrink-0">Email</span>
+              <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{success.email}</span>
             </div>
-          )}
-          <button
-            onClick={() => setSuccess(null)}
-            className="mt-2 text-xs text-green-700 underline hover:text-green-900"
-          >
-            Add another
-          </button>
+
+            {/* Email sent status */}
+            <div className="flex items-start gap-2">
+              <span className="text-slate-500 dark:text-slate-400 w-16 shrink-0 pt-0.5">Email</span>
+              {success.emailSent ? (
+                <span className="inline-flex items-center gap-1.5 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2.5 py-1 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Password setup email sent ✓
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700 px-2.5 py-1 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  {success.emailNote ?? "SMTP not configured — share the link below"}
+                </span>
+              )}
+            </div>
+
+            {/* Reset link (always shown so admin can share manually) */}
+            {success.resetLink && (
+              <div className="mt-1 space-y-1.5">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  Password Setup Link
+                  {success.emailSent && (
+                    <span className="ml-2 normal-case font-normal text-green-600 dark:text-green-400">(also emailed)</span>
+                  )}
+                </p>
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                  <p className="font-mono text-xs break-all flex-1 text-slate-700 dark:text-slate-300 select-all">
+                    {success.resetLink}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => copyLink(success.resetLink!)}
+                    title="Copy link"
+                    className="shrink-0 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  >
+                    {copied ? (
+                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 dark:text-slate-500">⏳ Link expires in 24 hours</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => { setSuccess(null); setCopied(false); }}
+              className="mt-1 text-xs text-primary-600 dark:text-primary-400 underline hover:text-primary-800 font-medium"
+            >
+              + Add another department person
+            </button>
+          </div>
         </div>
       )}
 

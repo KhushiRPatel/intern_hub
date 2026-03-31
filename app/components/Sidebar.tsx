@@ -23,7 +23,7 @@ const SECTIONS = [
       {
         label: 'Interns',
         href: '/interns',
-        roles: ['admin', 'department_person', 'intern'],
+        roles: ['admin', 'department_person'], // interns see their own profile instead
         icon: (
           <svg className="w-[1.1rem] h-[1.1rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -79,7 +79,7 @@ const SECTIONS = [
   },
 ];
 
-const NAV_HREFS = SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+const NAV_HREFS = [...SECTIONS.flatMap((s) => s.items.map((i) => i.href)), '/profile'];
 
 function navHrefMatchesPath(href: string, pathname: string): boolean {
   if (href === '/dashboard') return pathname === href;
@@ -155,6 +155,35 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* ── Profile link (intern only) ── */}
+      {user?.role === 'intern' && (
+        <div className="px-3 pb-2 shrink-0">
+          <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
+            MY ACCOUNT
+          </p>
+          {(() => {
+            const active = isActive('/profile');
+            return (
+              <Link
+                href="/profile"
+                className={[
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                  active
+                    ? 'bg-primary-600 text-white shadow-md shadow-primary-200 dark:shadow-primary-900/30'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-800 dark:hover:text-slate-200',
+                ].join(' ')}
+              >
+                <svg className="w-[1.1rem] h-[1.1rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                My Profile
+                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
+              </Link>
+            );
+          })()}
+        </div>
+      )}
 
       {/* ── User card ── */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 shrink-0">

@@ -1,4 +1,5 @@
 'use client';
+import { useMemo } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { demoStore } from '@/lib/demoStore';
 import { ROLE_LABELS } from '@/lib/constants';
@@ -11,7 +12,7 @@ import { Spinner } from '@/app/components/ui/Spinner';
 import { RoleBadge } from '@/app/components/ui/Badge';
 import { Button } from '@/app/components/ui/Button';
 
-const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 type DashboardStats = {
   total:      { aggregate: { count: number } };
@@ -49,8 +50,20 @@ function QuickAction({
 export default function DashboardPage() {
   const { user } = useAuth();
 
+  // Build a role-scoped where clause so each role sees only their data
+  const statsWhere = useMemo(() => {
+    if (!user) return {};
+    if (user.role === 'department_person' && user.department_id)
+      return { department_id: { _eq: user.department_id } };
+    if (user.role === 'intern' && user.id)
+      return { user_id: { _eq: user.id } };
+    return {}; // admin → no filter
+  }, [user]);
+
   const { data: gqlData, loading: statsLoading } = useQuery<DashboardStats>(GET_DASHBOARD_STATS, {
     skip: IS_DEMO,
+    variables: { where: statsWhere },
+    fetchPolicy: 'cache-and-network', // always refresh from server
   });
 
   const stats = IS_DEMO
