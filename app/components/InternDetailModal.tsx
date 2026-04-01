@@ -68,18 +68,30 @@ const TASK_STATUS_CFG: Record<string, { label: string; cls: string; dot: string 
   blocked:     { label: 'Blocked',     cls: 'text-red-600 dark:text-red-400',       dot: 'bg-red-500' },
 };
 
-function TaskRow({ task }: { task: Record<string, any> }) {
+function TaskRow({ task, onClick }: { task: Record<string, any>; onClick: () => void }) {
   const p = PRIORITY_CFG[task.priority] ?? PRIORITY_CFG.medium;
   const s = TASK_STATUS_CFG[task.status] ?? TASK_STATUS_CFG.open;
   const overdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed' && task.status !== 'done';
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex items-start gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-green-50/60 dark:hover:bg-green-900/10 transition-colors group"
+    >
       <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${s.dot}`} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-snug">{task.title}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-700 dark:group-hover:text-green-400 transition-colors">
+            {task.title}
+          </p>
+          {/* open-in-new icon */}
+          <svg className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 shrink-0 group-hover:text-green-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </div>
         {task.description && (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1">{task.description}</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 line-clamp-1 text-left">{task.description}</p>
         )}
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
           <span className={`text-[0.65rem] font-semibold ${s.cls}`}>{s.label}</span>
@@ -94,7 +106,7 @@ function TaskRow({ task }: { task: Record<string, any> }) {
           ) : null}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -110,6 +122,7 @@ interface Props {
 export default function InternDetailModal({ intern, departments, onClose, onEdit, userRole }: Props) {
   const isOpen = !!intern;
   const { token } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'tasks'>('details');
 
   /* ── extended profile (Hasura GraphQL via admin secret — profile only) ── */
@@ -164,6 +177,12 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
     setTasks([]);
     setTasksFetched(false);
   }, [intern?.id]);
+
+  // Navigate to the tasks page and open that specific task
+  const handleTaskClick = useCallback((taskId: string) => {
+    onClose(); // close this modal first
+    router.push(`/dashboard/tasks?taskId=${taskId}`);
+  }, [onClose, router]);
 
   const p = profileData?.interns_by_pk;
   const deptName = departments.find(d => d.id === intern?.department_id)?.name ?? '—';
@@ -393,7 +412,13 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
 
                     {/* task rows */}
                     <div>
-                      {tasks.map(t => <TaskRow key={t.id} task={t} />)}
+                      {tasks.map(t => (
+                        <TaskRow
+                          key={t.id}
+                          task={t}
+                          onClick={() => handleTaskClick(t.id)}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}

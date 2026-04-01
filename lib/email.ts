@@ -27,9 +27,10 @@ export async function sendPasswordSetupEmail(
   const transporter = getTransporter();
 
   if (!transporter) {
-    console.log('\n[EMAIL] SMTP not configured — reset link logged below:');
+    console.log('\n[EMAIL] SMTP not configured — password setup link:');
     console.log(`  To:   ${email}`);
-    console.log(`  Link: ${resetLink}\n`);
+    console.log(`  Link: ${resetLink}`);
+    console.log('  → Add SMTP_HOST / SMTP_USER / SMTP_PASS to .env.local to enable real emails.\n');
     return { sent: false, error: 'SMTP not configured' };
   }
 

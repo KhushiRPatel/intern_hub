@@ -15,6 +15,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'InternMS — Intern Management System',
   description: 'Manage interns across departments efficiently',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

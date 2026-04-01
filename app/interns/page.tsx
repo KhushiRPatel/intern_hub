@@ -284,7 +284,7 @@ export default function InternsPage() {
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.message || 'Failed to add intern');
-          const emailMsg = data.emailSent ? ' · Setup email sent' : ' · Email not configured';
+          const emailMsg = data.emailSent ? ' · Setup email sent ✓' : ' · Email not configured';
           showToast(`${values.name} added${emailMsg}`);
           refetch();
         }

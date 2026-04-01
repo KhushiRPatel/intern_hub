@@ -6,6 +6,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { ThemeToggle } from './ui/ThemeToggle';
 import { Avatar } from './ui/Avatar';
 import { RoleBadge } from './ui/Badge';
+import { Logo } from './ui/Logo';
 
 /* Map path prefixes → readable page names */
 const PAGE_NAMES: Record<string, string> = {
@@ -49,7 +50,7 @@ export default function Navbar() {
 
       {/* Left: breadcrumb */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-slate-400 dark:text-slate-500 text-sm hidden sm:block">InternMS</span>
+        <Logo iconSize={26} className="hidden sm:flex" />
         <svg className="w-3 h-3 text-slate-300 dark:text-slate-700 hidden sm:block shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>

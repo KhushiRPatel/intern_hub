@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import { useTaskContext, Task } from '@/app/context/TaskContext';
 import TaskList from '@/app/components/Tasks/TaskList';
@@ -17,6 +18,8 @@ interface Intern     { id: string; name: string; department_id: string; }
 export const TaskDashboard: React.FC = () => {
   const { user, token } = useAuthContext();
   const { tasks, setTasks, canEditTask, canDeleteTask, canChangeStatus, canCreateTask } = useTaskContext();
+  const searchParams = useSearchParams();
+  const router       = useRouter();
 
   const [viewMode,     setViewMode]     = useState<TaskViewMode>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -28,6 +31,9 @@ export const TaskDashboard: React.FC = () => {
   const [isLoading,    setIsLoading]    = useState(false);
   const [toast,        setToast]        = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [interns,      setInterns]      = useState<Intern[]>([]);
+
+  // Track whether we've already handled the taskId param so we don't re-open on every re-render
+  const handledTaskId = useRef<string | null>(null);
 
   const { data: deptData } = useQuery<{ departments: Department[] }>(GET_DEPARTMENTS);
   const departments = deptData?.departments ?? [];
@@ -90,6 +96,21 @@ export const TaskDashboard: React.FC = () => {
 
   useEffect(() => { fetchTasks(); fetchInterns(); }, [user, token]);
   useEffect(() => { fetchTasks(); }, [filters]);
+
+  // Auto-open task detail when navigated here via ?taskId=<id>
+  useEffect(() => {
+    const taskId = searchParams.get('taskId');
+    if (!taskId || tasks.length === 0) return;
+    if (handledTaskId.current === taskId) return; // already handled
+    const match = tasks.find(t => t.id === taskId);
+    if (match) {
+      handledTaskId.current = taskId;
+      setDetailTask(match);
+      setDetailOpen(true);
+      // Clean the URL so refreshing doesn't re-open the modal
+      router.replace('/dashboard/tasks', { scroll: false });
+    }
+  }, [tasks, searchParams, router]);
 
   const handleCreateTask = async (formData: Partial<Task>) => {
     setIsLoading(true);

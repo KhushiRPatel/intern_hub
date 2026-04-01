@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { Avatar } from './ui/Avatar';
 import { RoleBadge } from './ui/Badge';
+import { Logo } from './ui/Logo';
 
 /* ── Nav config ─────────────────────────────────────────────────────────────── */
 const SECTIONS = [
@@ -105,16 +106,8 @@ export default function Sidebar() {
       border-r border-slate-200 dark:border-slate-800
     ">
       {/* ── Brand ── */}
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="w-8 h-8 bg-primary-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-primary-200 dark:shadow-primary-900/40">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-        <div>
-          <span className="font-bold text-[1.05rem] tracking-tight text-slate-900 dark:text-white">InternMS</span>
-          <p className="text-[0.65rem] leading-none mt-0.5 text-slate-400 dark:text-slate-500">Management System</p>
-        </div>
+      <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <Logo iconSize={32} />
       </div>
 
       {/* ── Navigation ── */}
