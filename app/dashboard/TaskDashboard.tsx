@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import { useAppDispatch, useUI } from '@/lib/hooks';
-import { closeTaskDetailModal, openTaskDetailModal, setTaskFilters, clearTaskFilters } from '@/lib/slices/uiSlice';
+import { closeTaskDetailModal, openTaskDetailModal, openAddTaskModal, closeAddTaskModal, setTaskFilters, clearTaskFilters } from '@/lib/slices/uiSlice';
 import { useTaskContext, Task } from '@/app/context/TaskContext';
 import TaskList from '@/app/components/Tasks/TaskList';
 import TaskForm from '@/app/components/Tasks/TaskForm';
@@ -13,19 +13,17 @@ import TaskDetailModal from '@/app/components/Tasks/TaskDetailModal';
 import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS } from '@/graphql/queries';
 
-type TaskViewMode = 'list' | 'form';
 interface Department { id: string; name: string; }
 interface Intern     { id: string; name: string; department_id: string; }
 
 export const TaskDashboard: React.FC = () => {
   const { user, token } = useAuthContext();
   const dispatch = useAppDispatch();
-  const { taskFilters, showTaskDetailModal } = useUI();
+  const { taskFilters, showTaskDetailModal, showAddTaskModal } = useUI();
   const { tasks, setTasks, canEditTask, canDeleteTask, canChangeStatus, canCreateTask } = useTaskContext();
   const searchParams = useSearchParams();
   const router       = useRouter();
 
-  const [viewMode,     setViewMode]     = useState<TaskViewMode>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailTask,   setDetailTask]   = useState<Task | null>(null);
   const [isLoading,    setIsLoading]    = useState(false);
@@ -110,7 +108,8 @@ export const TaskDashboard: React.FC = () => {
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       showToast('Task created successfully');
       await fetchTasks();
-      setViewMode('list'); setSelectedTask(null);
+      dispatch(closeAddTaskModal());
+      setSelectedTask(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Error creating task', 'error');
     } finally { setIsLoading(false); }
@@ -128,7 +127,8 @@ export const TaskDashboard: React.FC = () => {
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
       showToast('Task updated successfully');
       await fetchTasks();
-      setViewMode('list'); setSelectedTask(null);
+      dispatch(closeAddTaskModal());
+      setSelectedTask(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Error updating task', 'error');
     } finally { setIsLoading(false); }
@@ -189,9 +189,9 @@ export const TaskDashboard: React.FC = () => {
               : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} total`}
           </p>
         </div>
-        {canCreateTask && viewMode === 'list' && (
+        {canCreateTask && !showAddTaskModal && (
           <button
-            onClick={() => { setSelectedTask(null); setViewMode('form'); }}
+            onClick={() => { setSelectedTask(null); dispatch(openAddTaskModal()); }}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white shadow-sm shadow-primary-200 dark:shadow-primary-900/30 transition-colors disabled:opacity-50"
           >
@@ -204,10 +204,10 @@ export const TaskDashboard: React.FC = () => {
       </div>
 
       {/* ── Form view ── */}
-      {viewMode === 'form' && !isIntern ? (
+      {showAddTaskModal && !isIntern ? (
         <div>
           <button
-            onClick={() => { setViewMode('list'); setSelectedTask(null); }}
+            onClick={() => { dispatch(closeAddTaskModal()); setSelectedTask(null); }}
             className="mb-4 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -219,7 +219,7 @@ export const TaskDashboard: React.FC = () => {
             interns={interns}
             departments={departments}
             onSubmit={selectedTask ? handleEditTask : handleCreateTask}
-            onCancel={() => { setViewMode('list'); setSelectedTask(null); }}
+            onCancel={() => { dispatch(closeAddTaskModal()); setSelectedTask(null); }}
             initialTask={selectedTask ?? undefined}
             isSubmitting={isLoading}
             isAdmin={user?.role === 'admin'}
@@ -242,7 +242,7 @@ export const TaskDashboard: React.FC = () => {
           <TaskList
             tasks={tasks}
             isLoading={isLoading}
-            onEdit={(task) => { setSelectedTask(task); setViewMode('form'); }}
+            onEdit={(task) => { setSelectedTask(task); dispatch(openAddTaskModal()); }}
             onDelete={handleDeleteTask}
             onStatusChange={handleStatusChange}
             onViewDetail={(task) => { setDetailTask(task); dispatch(closeTaskDetailModal()); }}
