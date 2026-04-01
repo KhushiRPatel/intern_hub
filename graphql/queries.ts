@@ -220,6 +220,31 @@ export const GET_TASK_ACTIVITY = gql`
   }
 `;
 
+export const GET_INTERN_TASKS = gql`
+  query GetInternTasks($internId: uuid!) {
+    tasks(
+      where: { task_interns: { intern_id: { _eq: $internId } } }
+      order_by: { created_at: desc }
+    ) {
+      id
+      title
+      description
+      priority
+      status
+      due_date
+      start_date
+      completed_date
+      estimated_hours
+      tags
+      created_at
+      updated_at
+    }
+    tasks_aggregate(where: { task_interns: { intern_id: { _eq: $internId } } }) {
+      aggregate { count }
+    }
+  }
+`;
+
 export const GET_INTERN_PROFILE = gql`
   query GetInternProfile($id: uuid!) {
     interns_by_pk(id: $id) {

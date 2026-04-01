@@ -102,25 +102,74 @@ export default function InternFormModal({
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((p) => ({ ...p, [field]: e.target.value }));
 
+  /** Allow only digits, spaces, +, -, ( ) for phone fields */
+  const setPhone = (field: 'phone' | 'alternate_phone') =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const cleaned = e.target.value.replace(/[^\d\s\+\-\(\)]/g, '');
+      setForm((p) => ({ ...p, [field]: cleaned }));
+    };
+
   const validate = (): boolean => {
     const e: Partial<Record<keyof InternFormValues, string>> = {};
-    if (!form.name.trim()) e.name = 'Name is required';
-    if (!form.email.trim()) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email address';
-    if (!form.college.trim()) e.college = 'College is required';
-    if (!form.degree.trim()) e.degree = 'Degree is required (e.g. B.Tech, MCA)';
-    if (!form.branch.trim()) e.branch = 'Branch is required (e.g. Computer Science)';
-    if (!form.department_id) e.department_id = 'Department is required';
-    if (!form.start_date) e.start_date = 'Start date is required';
+
+    // ── Personal ──────────────────────────────────────────────
+    if (!form.name.trim()) {
+      e.name = 'Full name is required';
+    } else if (form.name.trim().length < 2) {
+      e.name = 'Name must be at least 2 characters';
+    }
+
+    if (!form.email.trim()) {
+      e.email = 'Email address is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      e.email = 'Enter a valid email address';
+    }
+
+    if (form.phone.trim()) {
+      const digits = form.phone.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        e.phone = 'Phone must be 7–15 digits';
+      }
+    }
+
+    if (form.alternate_phone.trim()) {
+      const digits = form.alternate_phone.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        e.alternate_phone = 'Alternate phone must be 7–15 digits';
+      }
+    }
+
+    // ── Academic ──────────────────────────────────────────────
+    if (!form.college.trim()) {
+      e.college = 'College / Institute is required';
+    }
+    if (!form.degree.trim()) {
+      e.degree = 'Degree is required (e.g. B.Tech, MCA)';
+    }
+    if (!form.branch.trim()) {
+      e.branch = 'Branch is required (e.g. Computer Science)';
+    }
     if (form.graduation_year.trim()) {
       const y = Number(form.graduation_year);
       if (!Number.isInteger(y) || y < 1990 || y > 2040) {
-        e.graduation_year = 'Enter a valid year (1990–2040)';
+        e.graduation_year = 'Enter a valid year between 1990 and 2040';
       }
     }
-    if (form.college_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.college_email)) {
-      e.college_email = 'Invalid email';
+    if (form.college_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.college_email.trim())) {
+      e.college_email = 'Enter a valid college email address';
     }
+
+    // ── Placement ─────────────────────────────────────────────
+    if (!form.department_id) {
+      e.department_id = 'Department is required';
+    }
+    if (!form.start_date) {
+      e.start_date = 'Start date is required';
+    }
+    if (form.end_date && form.start_date && form.end_date < form.start_date) {
+      e.end_date = 'End date cannot be before start date';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -156,7 +205,8 @@ export default function InternFormModal({
       >
         <div className={sectionClass}>
           <Input
-            label="Full name *"
+            label="Full name"
+            required
             type="text"
             value={form.name}
             onChange={set('name')}
@@ -164,7 +214,8 @@ export default function InternFormModal({
             error={errors.name}
           />
           <Input
-            label="Email *"
+            label="Email"
+            required
             type="email"
             value={form.email}
             onChange={set('email')}
@@ -177,15 +228,18 @@ export default function InternFormModal({
             label="Phone"
             type="tel"
             value={form.phone}
-            onChange={set('phone')}
+            onChange={setPhone('phone')}
             placeholder="+91 98765 43210"
+            error={errors.phone}
+            hint="Digits only · 7–15 characters"
           />
           <Input
             label="Alternate phone"
             type="tel"
             value={form.alternate_phone}
-            onChange={set('alternate_phone')}
+            onChange={setPhone('alternate_phone')}
             placeholder="Optional second number"
+            error={errors.alternate_phone}
             wrapperClassName="sm:col-span-2 xl:col-span-1"
           />
         </div>
@@ -206,7 +260,8 @@ export default function InternFormModal({
       >
         <div className={sectionClass}>
           <Input
-            label="College / Institute *"
+            label="College / Institute"
+            required
             type="text"
             value={form.college}
             onChange={set('college')}
@@ -222,7 +277,8 @@ export default function InternFormModal({
             placeholder="Affiliating university (optional)"
           />
           <Input
-            label="Degree *"
+            label="Degree"
+            required
             type="text"
             value={form.degree}
             onChange={set('degree')}
@@ -230,7 +286,8 @@ export default function InternFormModal({
             error={errors.degree}
           />
           <Input
-            label="Branch / major *"
+            label="Branch / major"
+            required
             type="text"
             value={form.branch}
             onChange={set('branch')}
@@ -281,7 +338,8 @@ export default function InternFormModal({
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 gap-y-5">
           <Select
-            label="Department *"
+            label="Department"
+            required
             value={form.department_id}
             onChange={set('department_id')}
             error={errors.department_id}
@@ -294,7 +352,7 @@ export default function InternFormModal({
               </option>
             ))}
           </Select>
-          <Select label="Status *" value={form.status} onChange={set('status')}>
+          <Select label="Status" required value={form.status} onChange={set('status')}>
             {INTERN_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -302,7 +360,8 @@ export default function InternFormModal({
             ))}
           </Select>
           <Input
-            label="Start date *"
+            label="Start date"
+            required
             type="date"
             value={form.start_date}
             onChange={set('start_date')}
@@ -315,6 +374,7 @@ export default function InternFormModal({
             onChange={set('end_date')}
             min={form.start_date}
             hint="Optional — expected completion"
+            error={errors.end_date}
           />
         </div>
       </FormSection>

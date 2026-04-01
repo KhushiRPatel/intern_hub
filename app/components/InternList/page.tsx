@@ -10,6 +10,7 @@ interface Props {
   loading?: boolean;
   error?: string;
   userRole?: UserRole;
+  onView?: (intern: InternData) => void;
   onEdit?: (intern: InternData) => void;
   onDelete?: (id: string, name: string) => void;
 }
@@ -26,6 +27,7 @@ export default function InternTable({
   loading = false,
   error,
   userRole = 'intern',
+  onView,
   onEdit = () => {},
   onDelete = () => {},
 }: Props) {
@@ -66,6 +68,7 @@ export default function InternTable({
     );
   }
 
+  const canView   = userRole === 'admin' || userRole === 'department_person';
   const canEdit   = userRole === 'admin' || userRole === 'department_person';
   const canDelete = userRole === 'admin';
 
@@ -100,9 +103,20 @@ export default function InternTable({
                 <div className="flex items-center gap-3">
                   <Avatar name={intern.name} size="sm" />
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate leading-none">
-                      {intern.name}
-                    </p>
+                    {canView && onView ? (
+                      <button
+                        type="button"
+                        onClick={() => onView(intern)}
+                        className="font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline truncate leading-none text-left transition-colors"
+                        title="View full profile"
+                      >
+                        {intern.name}
+                      </button>
+                    ) : (
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 truncate leading-none">
+                        {intern.name}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{intern.email}</p>
                     {intern.phone && (
                       <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">{intern.phone}</p>

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
 import { DEPARTMENTS, INTERN_STATUSES, InternData, DEMO_DEPARTMENTS } from '@/lib/constants';
@@ -19,8 +20,9 @@ import { Input, Select } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
 import ImportModal from '@/app/components/ImportModal';
 import ExportInternsModal from '@/app/components/ExportInternsModal';
+import InternDetailModal from '@/app/components/InternDetailModal';
 
-const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
 /* ── Filter bar ─────────────────────────────────────────────────────────────── */
 function FilterBar({
@@ -116,17 +118,49 @@ function DeleteModal({ name, onConfirm, onCancel, submitting }: {
   );
 }
 
-/* ── Toast ──────────────────────────────────────────────────────────────────── */
-function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
-  return (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-sm font-medium animate-slide-in-right ${type === 'success' ? 'bg-primary-600 text-white' : 'bg-red-600 text-white'}`}>
-      {type === 'success'
-        ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-        : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-      }
-      {msg}
+/* ── Toast (top-right, portalled above everything) ─────────────────────────── */
+function Toast({ msg, type, onDismiss }: { msg: string; type: 'success' | 'error'; onDismiss: () => void }) {
+  const isSuccess = type === 'success';
+
+  const node = (
+    <div
+      className={[
+        'fixed top-4 right-4 z-[99999] flex items-start gap-3 px-4 py-3.5 rounded-2xl shadow-2xl',
+        'min-w-[260px] max-w-sm text-sm font-medium',
+        'animate-slide-in-right',
+        isSuccess
+          ? 'bg-white dark:bg-slate-900 border border-green-200 dark:border-green-800 text-slate-800 dark:text-slate-200'
+          : 'bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-slate-800 dark:text-slate-200',
+      ].join(' ')}
+    >
+      {/* icon */}
+      <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isSuccess ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+        {isSuccess
+          ? <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+          : <svg className="w-3 h-3 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        }
+      </div>
+      {/* message */}
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-bold uppercase tracking-wide mb-0.5 ${isSuccess ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          {isSuccess ? 'Success' : 'Error'}
+        </p>
+        <p className="text-sm leading-snug">{msg}</p>
+      </div>
+      {/* dismiss */}
+      <button
+        onClick={onDismiss}
+        className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
+
+  // Portal into document.body so no parent stacking-context can block it
+  return typeof document !== 'undefined' ? createPortal(node, document.body) : null;
 }
 
 /* ── Main page ──────────────────────────────────────────────────────────────── */
@@ -142,15 +176,18 @@ export default function InternsPage() {
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [editTarget, setEditTarget] = useState<InternData | null>(null);
+  const [viewTarget, setViewTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formBusy, setFormBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
+  const toastTimer = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
+    const t = setTimeout(() => setToast(null), 4000);
+    return t;
   }, []);
+  const showToast = toastTimer;
 
   /* ── Demo data ── */
   const [demoRefresh, setDemoRefresh] = useState(0);
@@ -206,6 +243,7 @@ export default function InternsPage() {
   const errorMsg = IS_DEMO ? undefined : gqlError?.message;
 
   /* ── Handlers ── */
+  const handleView = (intern: InternData) => setViewTarget(intern);
   const handleEdit = (intern: InternData) => { setEditTarget(intern); setShowForm(true); };
 
   const handleFormSubmit = async (values: InternFormValues) => {
@@ -355,6 +393,7 @@ export default function InternsPage() {
           interns={interns} loading={loading} error={errorMsg}
           departments={depts}
           userRole={user?.role ?? 'intern'}
+          onView={handleView}
           onEdit={handleEdit}
           onDelete={(id, name) => setDeleteTarget({ id, name })}
         />
@@ -398,7 +437,22 @@ export default function InternsPage() {
         departments={depts}
       />
 
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      {/* ── Intern detail modal ── */}
+      <InternDetailModal
+        intern={viewTarget}
+        departments={depts}
+        onClose={() => setViewTarget(null)}
+        onEdit={handleEdit}
+        userRole={user?.role}
+      />
+
+      {toast && (
+        <Toast
+          msg={toast.msg}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
