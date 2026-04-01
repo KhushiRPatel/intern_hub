@@ -227,6 +227,7 @@ export default function InternFormModal({
           <Input
             label="Phone"
             type="tel"
+            required
             value={form.phone}
             onChange={setPhone('phone')}
             placeholder="+91 98765 43210"
