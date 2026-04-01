@@ -1,8 +1,11 @@
 'use client';
 import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';           // ← replaces useNavigation
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { openAddInternModal, closeAddInternModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
+import { addNotification } from '@/lib/slices/notificationSlice';
 import { demoStore } from '@/lib/demoStore';
 import { INTERN_STATUSES, InternData } from '@/lib/constants';
 import {
@@ -23,25 +26,23 @@ const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
 
 export function InternsView() {
   const { user, token } = useAuth();
-  const router = useRouter();                          // ← replaces useNavigation
-
-  const [search, setSearch]   = useState('');
-  const [dept, setDept]       = useState('');
-  const [college, setCollege] = useState('');
-  const [status, setStatus]   = useState('');
-
-  const [showForm, setShowForm]       = useState(false);
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { showAddInternModal, internFilters } = useUI();
+  const { search, department: dept, college, status } = internFilters;
   const [editTarget, setEditTarget]   = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const [formBusy, setFormBusy]     = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+    dispatch(addNotification({
+      type,
+      message: msg,
+      duration: 3500,
+    }));
+  }, [dispatch]);
 
   const [demoRefresh, setDemoRefresh] = useState(0);
   const demoInterns = useMemo(() => {
@@ -90,7 +91,7 @@ export function InternsView() {
 
   const handleEdit = (intern: InternData) => {
     setEditTarget(intern);
-    setShowForm(true);
+    dispatch(openAddInternModal());
   };
 
   const handleFormSubmit = async (values: InternFormValues) => {
@@ -149,7 +150,7 @@ export function InternsView() {
           showToast(`${values.name} added successfully`);
         }
       }
-      setShowForm(false);
+      dispatch(closeAddInternModal());
       setEditTarget(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Operation failed', 'error');
@@ -189,7 +190,7 @@ export function InternsView() {
     }
   };
 
-  const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
+  const clearFilters = () => { dispatch(clearInternFilters()); };
 
   const isAdmin  = user?.role === 'admin';
   const showDept = user?.role !== 'intern';
@@ -217,10 +218,10 @@ export function InternsView() {
       </div>
 
       <FilterBar
-        search={search} setSearch={setSearch}
-        dept={dept}     setDept={setDept}
-        college={college} setCollege={setCollege}
-        status={status} setStatus={setStatus}
+        search={search} setSearch={(v) => dispatch(setInternFilters({ search: v }))}
+        dept={dept}     setDept={(v) => dispatch(setInternFilters({ department: v }))}
+        college={college} setCollege={(v) => dispatch(setInternFilters({ college: v }))}
+        status={status} setStatus={(v) => dispatch(setInternFilters({ status: v }))}
         onClear={clearFilters}
         colleges={colleges}
         showDeptFilter={showDept}
@@ -238,8 +239,8 @@ export function InternsView() {
       </div>
 
       <InternFormModal
-        isOpen={showForm}
-        onClose={() => { setShowForm(false); setEditTarget(null); }}
+        isOpen={showAddInternModal}
+        onClose={() => { dispatch(closeAddInternModal()); setEditTarget(null); }}
         onSubmit={handleFormSubmit}
         initialData={editTarget}
         departments={depts}
@@ -253,18 +254,6 @@ export function InternsView() {
           onCancel={() => setDeleteTarget(null)}
           submitting={deleteBusy}
         />
-      )}
-
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in ${
-          toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-        }`}>
-          {toast.type === 'success'
-            ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-            : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          }
-          {toast.msg}
-        </div>
       )}
     </div>
   );

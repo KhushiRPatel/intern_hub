@@ -8,6 +8,10 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserData } from '@/lib/constants';
+import { useAppDispatch } from '@/lib/hooks';
+import { resetUIState } from '@/lib/slices/uiSlice';
+import { clearNotifications } from '@/lib/slices/notificationSlice';
+import { resetChatbotState } from '@/lib/slices/chatbotSlice';
 
 interface AuthContextType {
     user: UserData | null;
@@ -25,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+    const dispatch = useAppDispatch();
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -68,6 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('auth_user');
         setToken(null);
         setUser(null);
+        dispatch(resetUIState());
+        dispatch(clearNotifications());
+        dispatch(resetChatbotState());
         router.push('/login');
     };
 

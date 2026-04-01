@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { toggleSidebar } from '@/lib/slices/uiSlice';
 import { Avatar } from './ui/Avatar';
 import { RoleBadge } from './ui/Badge';
 import { Logo } from './ui/Logo';
@@ -89,6 +91,8 @@ function navHrefMatchesPath(href: string, pathname: string): boolean {
 
 /* ── Component ──────────────────────────────────────────────────────────────── */
 export default function Sidebar() {
+  const dispatch = useAppDispatch();
+  const { sidebarOpen } = useUI();
   const pathname = usePathname();
   const { user } = useAuth();
 
@@ -101,10 +105,12 @@ export default function Sidebar() {
   const isActive = (href: string) => href === activeHref;
 
   return (
-    <aside className="w-64 flex flex-col shrink-0 h-full overflow-hidden
+    <aside className={`${
+      sidebarOpen ? 'w-64' : 'w-0'
+    } transition-all duration-300 flex flex-col shrink-0 h-full overflow-hidden
       bg-white dark:bg-slate-950
       border-r border-slate-200 dark:border-slate-800
-    ">
+    `}>
       {/* ── Brand ── */}
       <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
         <Logo iconSize={32} />

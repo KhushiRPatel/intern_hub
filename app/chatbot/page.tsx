@@ -2,9 +2,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useTheme, useAppDispatch, useChatbotState } from '@/lib/hooks';
+import { setInputValue, setIsLoading, addMessage, clearMessages, SerializableChatMessage } from '@/lib/slices/chatbotSlice';
 import { useAuth } from '@/app/context/AuthContext';
-import { ChatMessage, useChatbot } from '@/hooks/use-chatbot';
 import { chatbotConfig } from '@/lib/chatbot-config';
 
 const SUGGESTED_QUESTIONS = [
@@ -14,10 +14,13 @@ const SUGGESTED_QUESTIONS = [
   'Which interns are working remotely?',
 ];
 
-function MessageBubble({ msg, isDark }: { msg: ChatMessage; isDark: boolean }) {
+function MessageBubble({ msg, isDark }: { msg: SerializableChatMessage; isDark: boolean }) {
   const borderClass = isDark ? 'border-slate-700' : 'border-slate-200';
   const textClass = isDark ? 'text-slate-100' : 'text-slate-900';
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-500';
+
+  // Convert ISO string back to Date for display
+  const timestamp = new Date(msg.timestamp);
 
   return (
     <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
@@ -80,7 +83,7 @@ function MessageBubble({ msg, isDark }: { msg: ChatMessage; isDark: boolean }) {
         )}
 
         <span className={`text-[10px] ${msg.role === 'user' ? 'text-green-100' : mutedClass} block mt-2 text-right`}>
-          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
@@ -99,22 +102,80 @@ export default function ChatbotPage() {
   const router = useRouter();
   const { isDark } = useTheme();
   const { user } = useAuth();
-  const {
-    messages,
-    inputValue,
-    isLoading,
-    messagesEndRef,
-    setInputValue,
-    sendMessage,
-    clearChat,
-  } = useChatbot(chatbotConfig.apiBaseUrl, user);
-
+  const dispatch = useAppDispatch();
+  const { messages, inputValue, isLoading } = useChatbotState();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const borderClass = isDark ? 'border-slate-800' : 'border-slate-200';
   const bgClass = isDark ? 'bg-slate-950' : 'bg-slate-50';
   const panelClass = isDark ? 'bg-slate-900' : 'bg-white';
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-500';
+
+  // Send message function with API call
+  const sendMessage = async (question: string) => {
+    if (!question.trim() || isLoading) return;
+
+    const userMessage: SerializableChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: question,
+      timestamp: new Date().toISOString(),
+    };
+
+    dispatch(addMessage(userMessage));
+    dispatch(setInputValue(''));
+    dispatch(setIsLoading(true));
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-user-role': user?.role || 'admin',
+      };
+
+      const response = await fetch(`${chatbotConfig.apiBaseUrl}/api/v0/ask`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ question: question }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Transform backend response to message format
+      const botMessage: SerializableChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'bot',
+        content: `Query executed successfully. Found ${data.results?.length || 0} result${data.results?.length !== 1 ? 's' : ''}.`,
+        timestamp: new Date().toISOString(),
+        sql: data.sql,
+        tableData: data.results && data.results.length > 0 ? {
+          columns: data.columns || [],
+          rows: data.results || [],
+          rowCount: data.results?.length || 0,
+        } : undefined,
+      };
+
+      dispatch(addMessage(botMessage));
+    } catch (error) {
+      const errorMessage: SerializableChatMessage = {
+        id: (Date.now() + 2).toString(),
+        role: 'bot',
+        content: error instanceof Error ? error.message : 'An error occurred',
+        timestamp: new Date().toISOString(),
+      };
+      dispatch(addMessage(errorMessage));
+    } finally {
+      dispatch(setIsLoading(false));
+    }
+  };
+
+  const handleClearChat = () => {
+    dispatch(clearMessages());
+  };
 
   const handleSend = () => {
     if (!inputValue.trim() || isLoading) return;
@@ -130,7 +191,7 @@ export default function ChatbotPage() {
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
+    dispatch(setInputValue(e.target.value));
     // Auto resize textarea
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
@@ -138,7 +199,7 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, messagesEndRef]);
+  }, [messages]);
 
   return (
     <div className={`flex flex-col h-full ${bgClass}`}>
@@ -167,7 +228,7 @@ export default function ChatbotPage() {
         </div>
         {messages.length > 0 && (
           <button
-            onClick={clearChat}
+            onClick={handleClearChat}
             className={`text-xs px-3 py-1.5 rounded-lg border ${borderClass} ${mutedClass} hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 transition-colors`}
           >
             Clear chat

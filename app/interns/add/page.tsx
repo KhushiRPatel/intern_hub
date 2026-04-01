@@ -1,9 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS, GET_INTERNS, GET_DASHBOARD_STATS } from '@/graphql/queries';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch } from '@/lib/hooks';
+import { openAddInternModal, closeAddInternModal } from '@/lib/slices/uiSlice';
 import { demoStore } from '@/lib/demoStore';
 import { DEMO_DEPARTMENTS, DepartmentData } from '@/lib/constants';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
@@ -24,8 +26,17 @@ async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
 export default function AddInternPage() {
   const { user, token } = useAuth();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Open modal when component mounts, close when unmounting
+  useEffect(() => {
+    dispatch(openAddInternModal());
+    return () => {
+      dispatch(closeAddInternModal());
+    };
+  }, [dispatch]);
 
   const isAdmin      = user?.role === 'admin';
   const isDeptPerson = user?.role === 'department_person';
@@ -99,6 +110,7 @@ export default function AddInternPage() {
       if (!res.ok) throw new Error((data as { message?: string }).message || 'Failed to add intern');
 
       await Promise.all([refetchInterns(), refetchStats()]);
+      dispatch(closeAddInternModal());
       router.push('/interns');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add intern');
@@ -106,12 +118,17 @@ export default function AddInternPage() {
     }
   };
 
+  const handleClose = () => {
+    dispatch(closeAddInternModal());
+    router.push('/interns');
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-2 sm:px-4 pb-12">
       <div className="mb-8">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={handleClose}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-5"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,7 +177,7 @@ export default function AddInternPage() {
       <InternFormModal
         isOpen={true}
         isInline={true}
-        onClose={() => router.push('/interns')}
+        onClose={handleClose}
         onSubmit={handleSubmit}
         initialData={null}
         departments={departments}

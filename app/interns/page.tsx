@@ -3,6 +3,9 @@ import { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { openAddInternModal, closeAddInternModal, openImportModal, closeImportModal, openExportModal, closeExportModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
+import { addNotification } from '@/lib/slices/notificationSlice';
 import { DEPARTMENTS, INTERN_STATUSES, InternData, DEMO_DEPARTMENTS } from '@/lib/constants';
 import { demoStore } from '@/lib/demoStore';
 import { GET_INTERNS, GET_DEPARTMENTS, GET_COLLEGES } from '@/graphql/queries';
@@ -118,76 +121,26 @@ function DeleteModal({ name, onConfirm, onCancel, submitting }: {
   );
 }
 
-/* ── Toast (top-right, portalled above everything) ─────────────────────────── */
-function Toast({ msg, type, onDismiss }: { msg: string; type: 'success' | 'error'; onDismiss: () => void }) {
-  const isSuccess = type === 'success';
-
-  const node = (
-    <div
-      className={[
-        'fixed top-4 right-4 z-[99999] flex items-start gap-3 px-4 py-3.5 rounded-2xl shadow-2xl',
-        'min-w-[260px] max-w-sm text-sm font-medium',
-        'animate-slide-in-right',
-        isSuccess
-          ? 'bg-white dark:bg-slate-900 border border-green-200 dark:border-green-800 text-slate-800 dark:text-slate-200'
-          : 'bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800 text-slate-800 dark:text-slate-200',
-      ].join(' ')}
-    >
-      {/* icon */}
-      <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${isSuccess ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
-        {isSuccess
-          ? <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-          : <svg className="w-3 h-3 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        }
-      </div>
-      {/* message */}
-      <div className="flex-1 min-w-0">
-        <p className={`text-xs font-bold uppercase tracking-wide mb-0.5 ${isSuccess ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-          {isSuccess ? 'Success' : 'Error'}
-        </p>
-        <p className="text-sm leading-snug">{msg}</p>
-      </div>
-      {/* dismiss */}
-      <button
-        onClick={onDismiss}
-        className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-  );
-
-  // Portal into document.body so no parent stacking-context can block it
-  return typeof document !== 'undefined' ? createPortal(node, document.body) : null;
-}
-
 /* ── Main page ──────────────────────────────────────────────────────────────── */
 export default function InternsPage() {
   const { user, token, isLoading } = useAuth();
+  const dispatch = useAppDispatch();
+  const { showAddInternModal, showImportModal, showExportModal, internFilters } = useUI();
+  const { search, department: dept, college, status } = internFilters;
 
-  const [search, setSearch] = useState('');
-  const [dept, setDept] = useState('');
-  const [college, setCollege] = useState('');
-  const [status, setStatus] = useState('');
-
-  const [showForm, setShowForm] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [showExport, setShowExport] = useState(false);
   const [editTarget, setEditTarget] = useState<InternData | null>(null);
   const [viewTarget, setViewTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [formBusy, setFormBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
-  const toastTimer = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    const t = setTimeout(() => setToast(null), 4000);
-    return t;
-  }, []);
-  const showToast = toastTimer;
+  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
+    dispatch(addNotification({
+      type,
+      message: msg,
+      duration: 4000,
+    }));
+  }, [dispatch]);
 
   /* ── Demo data ── */
   const [demoRefresh, setDemoRefresh] = useState(0);
@@ -244,7 +197,7 @@ export default function InternsPage() {
 
   /* ── Handlers ── */
   const handleView = (intern: InternData) => setViewTarget(intern);
-  const handleEdit = (intern: InternData) => { setEditTarget(intern); setShowForm(true); };
+  const handleEdit = (intern: InternData) => { setEditTarget(intern); dispatch(openAddInternModal()); };
 
   const handleFormSubmit = async (values: InternFormValues) => {
     setFormBusy(true);
@@ -289,7 +242,7 @@ export default function InternsPage() {
           refetch();
         }
       }
-      setShowForm(false);
+      dispatch(closeAddInternModal());
       setEditTarget(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Operation failed', 'error');
@@ -313,7 +266,7 @@ export default function InternsPage() {
     }
   };
 
-  const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
+  const clearFilters = () => { dispatch(clearInternFilters()); };
 
   const isAdmin = user?.role === 'admin';
   const showDept = user?.role === 'admin';
@@ -332,7 +285,7 @@ export default function InternsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setShowExport(true)}
+            onClick={() => dispatch(openExportModal())}
             leftIcon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path
@@ -349,7 +302,7 @@ export default function InternsPage() {
             <>
               <Button
                 variant="outline"
-                onClick={() => setShowImport(true)}
+                onClick={() => dispatch(openImportModal())}
                 leftIcon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
@@ -363,7 +316,7 @@ export default function InternsPage() {
                 Import Excel
               </Button>
               <Button
-                onClick={() => { setEditTarget(null); setShowForm(true); }}
+                onClick={() => { setEditTarget(null); dispatch(openAddInternModal()); }}
                 leftIcon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -379,10 +332,10 @@ export default function InternsPage() {
 
       {/* ── Filters ── */}
       <FilterBar
-        search={search} setSearch={setSearch}
-        dept={dept} setDept={setDept}
-        college={college} setCollege={setCollege}
-        status={status} setStatus={setStatus}
+        search={search} setSearch={(v) => dispatch(setInternFilters({ search: v }))}
+        dept={dept} setDept={(v) => dispatch(setInternFilters({ department: v }))}
+        college={college} setCollege={(v) => dispatch(setInternFilters({ college: v }))}
+        status={status} setStatus={(v) => dispatch(setInternFilters({ status: v }))}
         onClear={clearFilters} colleges={colleges} showDeptFilter={showDept}
         depts={depts}
       />
@@ -401,8 +354,8 @@ export default function InternsPage() {
 
       {/* ── Modals ── */}
       <InternFormModal
-        isOpen={showForm}
-        onClose={() => { setShowForm(false); setEditTarget(null); }}
+        isOpen={showAddInternModal}
+        onClose={() => { dispatch(closeAddInternModal()); setEditTarget(null); }}
         onSubmit={handleFormSubmit}
         initialData={editTarget}
         departments={depts}
@@ -419,11 +372,11 @@ export default function InternsPage() {
       )}
 
       <ImportModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
+        open={showImportModal}
+        onClose={() => dispatch(closeImportModal())}
         departments={depts}
         onImportDone={() => {
-          setShowImport(false);
+          dispatch(closeImportModal());
           if (IS_DEMO) setDemoRefresh(n => n + 1);
           else refetch();
           showToast('Interns imported successfully');
@@ -431,8 +384,8 @@ export default function InternsPage() {
       />
 
       <ExportInternsModal
-        open={showExport}
-        onClose={() => setShowExport(false)}
+        open={showExportModal}
+        onClose={() => dispatch(closeExportModal())}
         interns={interns}
         departments={depts}
       />
@@ -446,13 +399,7 @@ export default function InternsPage() {
         userRole={user?.role}
       />
 
-      {toast && (
-        <Toast
-          msg={toast.msg}
-          type={toast.type}
-          onDismiss={() => setToast(null)}
-        />
-      )}
+
     </div>
   );
 }

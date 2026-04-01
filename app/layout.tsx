@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import ReduxProvider from './providers/ReduxProvider';
+import ThemeInitializer from './providers/ThemeInitializer';
 import ApolloClientProvider from './providers/ApolloProvider';
 import { AuthProvider } from './context/AuthContext';
-import { TaskProvider } from './context/TaskContext';   // ← your branch
-import { ThemeProvider } from './context/ThemeContext'; // ← Harshil's branch
+import { TaskProvider } from './context/TaskContext';
+import NotificationCenter from './components/NotificationCenter';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -25,15 +27,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
-        <ThemeProvider>
+        <ReduxProvider>
+          <ThemeInitializer />
           <ApolloClientProvider>
             <AuthProvider>
               <TaskProvider>
                 {children}
+                <NotificationCenter />
               </TaskProvider>
             </AuthProvider>
           </ApolloClientProvider>
-        </ThemeProvider> 
+        </ReduxProvider>
       </body>
     </html>
   );

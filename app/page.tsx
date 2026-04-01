@@ -1,16 +1,14 @@
-'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from './context/AuthContext';
-import { PageSpinner } from './components/ui/Spinner';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
-export default function Home() {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
+export default async function Home() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
 
-  useEffect(() => {
-    if (!isLoading) router.replace(user ? '/dashboard' : '/login');
-  }, [user, isLoading, router]);
-
-  return <PageSpinner label="Loading…" />;
+  // Server-side redirect — no loading spinner, no hydration flash
+  if (token) {
+    redirect('/dashboard');
+  } else {
+    redirect('/login');
+  }
 }

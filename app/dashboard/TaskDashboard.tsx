@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { closeTaskDetailModal, openTaskDetailModal, setTaskFilters, clearTaskFilters } from '@/lib/slices/uiSlice';
 import { useTaskContext, Task } from '@/app/context/TaskContext';
 import TaskList from '@/app/components/Tasks/TaskList';
 import TaskForm from '@/app/components/Tasks/TaskForm';
@@ -17,6 +19,8 @@ interface Intern     { id: string; name: string; department_id: string; }
 
 export const TaskDashboard: React.FC = () => {
   const { user, token } = useAuthContext();
+  const dispatch = useAppDispatch();
+  const { taskFilters, showTaskDetailModal } = useUI();
   const { tasks, setTasks, canEditTask, canDeleteTask, canChangeStatus, canCreateTask } = useTaskContext();
   const searchParams = useSearchParams();
   const router       = useRouter();
@@ -24,10 +28,6 @@ export const TaskDashboard: React.FC = () => {
   const [viewMode,     setViewMode]     = useState<TaskViewMode>('list');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [detailTask,   setDetailTask]   = useState<Task | null>(null);
-  const [detailOpen,   setDetailOpen]   = useState(false);
-  const [filters,      setFilters]      = useState<TaskFilterOptions>({
-    search: '', status: '', priority: '', intern_id: '', date_range: 'all',
-  });
   const [isLoading,    setIsLoading]    = useState(false);
   const [toast,        setToast]        = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [interns,      setInterns]      = useState<Intern[]>([]);
@@ -53,28 +53,15 @@ export const TaskDashboard: React.FC = () => {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tasks');
 
       let list: Task[] = data.tasks;
-      if (filters.search)
+      if (taskFilters.search)
         list = list.filter(t =>
-          t.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-          t.description?.toLowerCase().includes(filters.search.toLowerCase()),
+          t.title.toLowerCase().includes(taskFilters.search.toLowerCase()) ||
+          t.description?.toLowerCase().includes(taskFilters.search.toLowerCase()),
         );
-      if (filters.status)    list = list.filter(t => t.status === filters.status);
-      if (filters.priority)  list = list.filter(t => t.priority === filters.priority);
-      if (filters.intern_id) list = list.filter(t => t.intern_ids?.includes(filters.intern_id));
-      if (filters.date_range !== 'all') {
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        list = list.filter(t => {
-          if (!t.due_date) return false;
-          const due = new Date(t.due_date); due.setHours(0, 0, 0, 0);
-          switch (filters.date_range) {
-            case 'today':   return due.getTime() === today.getTime();
-            case 'week':    { const e = new Date(today); e.setDate(e.getDate() + 7);  return due >= today && due <= e; }
-            case 'month':   { const e = new Date(today); e.setDate(e.getDate() + 30); return due >= today && due <= e; }
-            case 'overdue': return due < today && t.status !== 'completed';
-            default:        return true;
-          }
-        });
-      }
+      if (taskFilters.status)    list = list.filter(t => t.status === taskFilters.status);
+      if (taskFilters.priority)  list = list.filter(t => t.priority === taskFilters.priority);
+      if (taskFilters.department) list = list.filter(t => t.department_id === taskFilters.department);
+      if (taskFilters.search && taskFilters.priority && taskFilters.status && taskFilters.department) return true;
       setTasks(list);
     } catch {
       showToast('Failed to load tasks', 'error');
@@ -95,7 +82,7 @@ export const TaskDashboard: React.FC = () => {
   };
 
   useEffect(() => { fetchTasks(); fetchInterns(); }, [user, token]);
-  useEffect(() => { fetchTasks(); }, [filters]);
+  useEffect(() => { fetchTasks(); }, [taskFilters]);
 
   // Auto-open task detail when navigated here via ?taskId=<id>
   useEffect(() => {
@@ -106,7 +93,7 @@ export const TaskDashboard: React.FC = () => {
     if (match) {
       handledTaskId.current = taskId;
       setDetailTask(match);
-      setDetailOpen(true);
+      dispatch(closeTaskDetailModal());
       // Clean the URL so refreshing doesn't re-open the modal
       router.replace('/dashboard/tasks', { scroll: false });
     }
@@ -192,20 +179,6 @@ export const TaskDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
 
-      {/* ── Toast ── */}
-      {toast && (
-        <div className={[
-          'fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white animate-slide-in-right',
-          toast.type === 'success' ? 'bg-primary-600' : 'bg-red-500',
-        ].join(' ')}>
-          {toast.type === 'success'
-            ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-            : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          }
-          {toast.message}
-        </div>
-      )}
-
       {/* ── Header ── */}
       <div className="flex items-center justify-between">
         <div>
@@ -260,8 +233,8 @@ export const TaskDashboard: React.FC = () => {
           </div>
 
           <TaskFilters
-            filters={filters}
-            onFilterChange={setFilters}
+            filters={{ search: taskFilters.search, status: taskFilters.status, priority: taskFilters.priority, intern_id: '', date_range: 'all' }}
+            onFilterChange={(newFilters) => dispatch(setTaskFilters({ search: newFilters.search, status: newFilters.status, priority: newFilters.priority }))}
             interns={isIntern ? [] : interns}
             showInternFilter={!isIntern}
           />
@@ -272,7 +245,7 @@ export const TaskDashboard: React.FC = () => {
             onEdit={(task) => { setSelectedTask(task); setViewMode('form'); }}
             onDelete={handleDeleteTask}
             onStatusChange={handleStatusChange}
-            onViewDetail={(task) => { setDetailTask(task); setDetailOpen(true); }}
+            onViewDetail={(task) => { setDetailTask(task); dispatch(closeTaskDetailModal()); }}
             canEdit={canEditTask}
             canDelete={canDeleteTask}
             canChangeStatus={canChangeStatus}
@@ -285,8 +258,8 @@ export const TaskDashboard: React.FC = () => {
       {/* ── Task Detail Modal ── */}
       <TaskDetailModal
         task={detailTask}
-        isOpen={detailOpen}
-        onClose={() => { setDetailOpen(false); setDetailTask(null); }}
+        isOpen={showTaskDetailModal}
+        onClose={() => { dispatch(closeTaskDetailModal()); setDetailTask(null); }}
         token={token}
         userRole={user?.role ?? 'intern'}
       />

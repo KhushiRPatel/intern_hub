@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { openProfileEditModal, closeProfileEditModal } from '@/lib/slices/uiSlice';
 import { useQuery } from '@apollo/client/react';
 import { GET_INTERN_PROFILE } from '@/graphql/queries';
 import { Avatar } from '@/app/components/ui/Avatar';
@@ -102,7 +103,8 @@ function fmtDate(val?: string | null) {
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const { user } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const dispatch = useAppDispatch();
+  const { showProfileEditModal } = useUI();
 
   const isIntern = user?.role === 'intern';
 
@@ -137,7 +139,7 @@ export default function ProfilePage() {
           </p>
         </div>
         {isIntern && user.intern_id && (
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={() => dispatch(openProfileEditModal())}>
             <svg className="w-4 h-4 mr-1.5 -ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
             </svg>
@@ -305,8 +307,8 @@ export default function ProfilePage() {
       {/* ── Edit modal ── */}
       {isIntern && user.intern_id && (
         <InternProfileModal
-          isOpen={isModalOpen}
-          onClose={() => { setIsModalOpen(false); refetch(); }}
+          isOpen={showProfileEditModal}
+          onClose={() => { dispatch(closeProfileEditModal()); refetch(); }}
           internId={user.intern_id}
         />
       )}

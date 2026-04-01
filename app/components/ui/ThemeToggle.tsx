@@ -1,16 +1,22 @@
 'use client';
-import { useTheme } from '@/app/context/ThemeContext';
+import { useAppDispatch, useTheme } from '@/lib/hooks';
+import { toggleTheme } from '@/lib/slices/themeSlice';
 
 interface ThemeToggleProps {
   className?: string;
 }
 
 export function ThemeToggle({ className = '' }: ThemeToggleProps) {
-  const { isDark, toggleTheme } = useTheme();
+  const dispatch = useAppDispatch();
+  const { isDark } = useTheme();
+
+  const handleToggle = () => {
+    dispatch(toggleTheme());
+  };
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={handleToggle}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDark ? 'Light mode' : 'Dark mode'}
       className={[
