@@ -245,7 +245,7 @@ export const TaskDashboard: React.FC = () => {
             onEdit={(task) => { setSelectedTask(task); dispatch(openAddTaskModal()); }}
             onDelete={handleDeleteTask}
             onStatusChange={handleStatusChange}
-            onViewDetail={(task) => { setDetailTask(task); dispatch(closeTaskDetailModal()); }}
+            onViewDetail={(task) => { setDetailTask(task); dispatch(openTaskDetailModal()); }}
             canEdit={canEditTask}
             canDelete={canDeleteTask}
             canChangeStatus={canChangeStatus}
