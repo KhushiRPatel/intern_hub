@@ -8,7 +8,7 @@ services:
     container_name: internhub_postgres
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: intern_management
       POSTGRES_USER: chatbot
@@ -63,7 +63,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: node apply-permissions.mjs
+    command: sh -c "HASURA_URL=http://hasura:8080 node apply-permissions.mjs"
     restart: "no"
 volumes:
   postgres_data:
