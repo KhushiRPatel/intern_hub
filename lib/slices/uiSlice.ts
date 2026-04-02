@@ -29,6 +29,12 @@ interface UIState {
     department: string;
   };
 
+  deptPersonFilters: {
+    search: string;
+    department: string;
+    status: string;
+  };
+
   // Selected items
   selectedInternId: string | null;
   selectedTaskId: string | null;
@@ -46,6 +52,7 @@ const initialState: UIState = {
   sidebarOpen: true,
   internFilters: { search: '', department: '', college: '', status: '' },
   taskFilters: { search: '', priority: '', status: '', department: '' },
+  deptPersonFilters: { search: '', department: '', status: '' },
   selectedInternId: null,
   selectedTaskId: null,
 };
@@ -129,6 +136,14 @@ const uiSlice = createSlice({
       state.taskFilters = initialState.taskFilters;
     },
 
+    // Department Person filters
+    setDeptPersonFilters: (state, action: PayloadAction<Partial<UIState['deptPersonFilters']>>) => {
+      state.deptPersonFilters = { ...state.deptPersonFilters, ...action.payload };
+    },
+    clearDeptPersonFilters: (state) => {
+      state.deptPersonFilters = initialState.deptPersonFilters;
+    },
+
     // Reset all UI state on logout
     resetUIState: () => initialState,
   },
@@ -157,6 +172,8 @@ export const {
   clearInternFilters,
   setTaskFilters,
   clearTaskFilters,
+  setDeptPersonFilters,
+  clearDeptPersonFilters,
   resetUIState,
 } = uiSlice.actions;
 

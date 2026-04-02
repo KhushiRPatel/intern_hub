@@ -3,8 +3,9 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
-import { useAppDispatch } from '@/lib/hooks';
+import { useAppDispatch, useUI } from '@/lib/hooks';
 import { addNotification } from '@/lib/slices/notificationSlice';
+import { setDeptPersonFilters, clearDeptPersonFilters } from '@/lib/slices/uiSlice';
 import { DEMO_DEPARTMENTS, DepartmentData } from '@/lib/constants';
 import { GET_DEPARTMENT_PERSONS, GET_DEPARTMENTS } from '@/graphql/queries';
 import { DELETE_DEPARTMENT_PERSON, UPDATE_DEPARTMENT_PERSON } from '@/graphql/mutations';
@@ -191,6 +192,7 @@ export default function DepartmentPersonsPage() {
   const { user, token, isLoading } = useAuth();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const { deptPersonFilters } = useUI();
 
   // Admin-only guard
   useEffect(() => {
@@ -203,10 +205,6 @@ export default function DepartmentPersonsPage() {
     dispatch(addNotification({ type, message: msg, duration: 4000 }));
   }, [dispatch]);
 
-  // ── Filters ──
-  const [search, setSearch] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-
   // ── Modal state ──
   const [editTarget, setEditTarget] = useState<DeptPerson | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -217,19 +215,19 @@ export default function DepartmentPersonsPage() {
   const [demoPersons, setDemoPersons] = useState<DeptPerson[]>(DEMO_PERSONS);
 
   // ── Departments ──
-  const { data: deptGqlData } = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
+  const { data: deptGqlData } = useQuery<{ departments: DepartmentData[] }>(GET_DEPARTMENTS, { skip: IS_DEMO });
   const departments: DepartmentData[] = IS_DEMO ? DEMO_DEPARTMENTS : (deptGqlData?.departments ?? []);
   const deptMap = useMemo(() => Object.fromEntries(departments.map(d => [d.id, d.name])), [departments]);
 
   // ── GraphQL ──
   const buildWhere = () => {
     const conditions: Record<string, unknown>[] = [];
-    if (search) conditions.push({ name: { _ilike: `%${search}%` } });
-    if (deptFilter) conditions.push({ department_id: { _eq: deptFilter } });
+    if (deptPersonFilters.search) conditions.push({ name: { _ilike: `%${deptPersonFilters.search}%` } });
+    if (deptPersonFilters.department) conditions.push({ department_id: { _eq: deptPersonFilters.department } });
     return conditions.length === 0 ? {} : conditions.length === 1 ? conditions[0] : { _and: conditions };
   };
 
-  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(GET_DEPARTMENT_PERSONS, {
+  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[] }>(GET_DEPARTMENT_PERSONS, {
     variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
     skip: IS_DEMO || isLoading,
   });
@@ -242,15 +240,15 @@ export default function DepartmentPersonsPage() {
   const persons = useMemo(() => {
     if (!IS_DEMO) return allPersons;
     return allPersons.filter(p => {
-      const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase());
-      const matchDept = !deptFilter || p.department_id === deptFilter;
+      const matchSearch = !deptPersonFilters.search || p.name.toLowerCase().includes(deptPersonFilters.search.toLowerCase()) || p.email.toLowerCase().includes(deptPersonFilters.search.toLowerCase());
+      const matchDept = !deptPersonFilters.department || p.department_id === deptPersonFilters.department;
       return matchSearch && matchDept;
     });
-  }, [allPersons, search, deptFilter]);
+  }, [allPersons, deptPersonFilters]);
 
   const loading = !IS_DEMO && gqlLoading;
   const errorMsg = gqlError?.message ?? null;
-  const hasFilter = search || deptFilter;
+  const hasFilter = deptPersonFilters.search || deptPersonFilters.department;
 
   // ── Handlers ──
   const handleEdit = (person: DeptPerson) => setEditTarget(person);
@@ -340,7 +338,7 @@ export default function DepartmentPersonsPage() {
       <div className="bg-white dark:bg-[#1e1c2f] rounded-2xl border border-slate-100 dark:border-[#2d2a45] p-4 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
-            type="text" value={search} onChange={e => setSearch(e.target.value)}
+            type="text" value={deptPersonFilters.search} onChange={e => dispatch(setDeptPersonFilters({ search: e.target.value }))}
             placeholder="Search by name or email…"
             leftAddon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -348,7 +346,7 @@ export default function DepartmentPersonsPage() {
               </svg>
             }
           />
-          <Select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
+          <Select value={deptPersonFilters.department} onChange={e => dispatch(setDeptPersonFilters({ department: e.target.value }))}>
             <option value="">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </Select>
@@ -357,14 +355,14 @@ export default function DepartmentPersonsPage() {
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-400 dark:text-slate-600">Active filters:</span>
             {[
-              search && `Name: "${search}"`,
-              deptFilter && `Dept: ${deptMap[deptFilter] ?? deptFilter}`,
+              deptPersonFilters.search && `Name: "${deptPersonFilters.search}"`,
+              deptPersonFilters.department && `Dept: ${deptMap[deptPersonFilters.department] ?? deptPersonFilters.department}`,
             ].filter(Boolean).map(tag => (
               <span key={tag as string} className="inline-flex items-center bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-xs font-medium px-2.5 py-0.5 rounded-full">
                 {tag}
               </span>
             ))}
-            <button onClick={() => { setSearch(''); setDeptFilter(''); }} className="ml-auto text-xs text-red-500 hover:text-red-700 font-medium transition-colors">
+            <button onClick={() => dispatch(clearDeptPersonFilters())} className="ml-auto text-xs text-red-500 hover:text-red-700 font-medium transition-colors">
               Clear all
             </button>
           </div>
