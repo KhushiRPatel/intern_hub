@@ -76,6 +76,7 @@ export default function DashboardPage() {
     };
 
   const isAdmin = user?.role === 'admin';
+  const isIntern = user?.role === 'intern';
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -149,13 +150,15 @@ export default function DashboardPage() {
       <div>
         <h3 className="text-slate-700 dark:text-slate-300 font-semibold text-sm mb-4">Quick Access</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <QuickAction
-            href="/interns"
-            title="View All Interns"
-            desc="Filter, search and manage intern records"
-            iconBg="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary-600"
-            icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
-          />
+          {!isIntern && (
+            <QuickAction
+              href="/interns"
+              title="View All Interns"
+              desc="Filter, search and manage intern records"
+              iconBg="bg-slate-100 dark:bg-slate-800 group-hover:bg-primary-600"
+              icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
+            />
+          )}
           {/* ← YOUR BRANCH: Tasks quick action card, visible to all roles */}
           <QuickAction
             href="/dashboard/tasks"
