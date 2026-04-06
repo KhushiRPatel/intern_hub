@@ -10,6 +10,7 @@ interface Props {
   loading?: boolean;
   error?: string;
   userRole?: UserRole;
+  rowOffset?: number;
   onView?: (intern: InternData) => void;
   onEdit?: (intern: InternData) => void;
   onDelete?: (id: string, name: string) => void;
@@ -27,6 +28,7 @@ export default function InternTable({
   loading = false,
   error,
   userRole = 'intern',
+  rowOffset = 0,
   onView,
   onEdit = () => {},
   onDelete = () => {},
@@ -95,7 +97,7 @@ export default function InternTable({
             >
               {/* # */}
               <td className="px-4 py-3.5 text-slate-400 dark:text-slate-600 text-xs font-medium w-10">
-                {idx + 1}
+                {rowOffset + idx + 1}
               </td>
 
               {/* Intern info */}
