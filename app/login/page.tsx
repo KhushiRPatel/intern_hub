@@ -157,29 +157,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-4 bg-slate-100 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
-            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Demo credentials</p>
-            <div className="space-y-1 text-xs text-slate-500 dark:text-slate-500">
-              <div className="flex justify-between">
-                <span>Admin:</span>
-                <code className="text-slate-700 dark:text-slate-300">admin@company.com / admin123</code>
-              </div>
-              <div className="flex justify-between">
-                <span>Dept.Person (AI):</span>
-                <code className="text-slate-700 dark:text-slate-300">ra.ai@student.com / dept123</code>
-              </div>
-              <div className="flex justify-between">
-                <span>Dept.Person (PHP):</span>
-                <code className="text-slate-700 dark:text-slate-300">priya.php@company.com / dept123</code>
-              </div>
-              <div className="flex justify-between">
-                <span>Intern:</span>
-                <code className="text-slate-700 dark:text-slate-300">john.intern@student.com / intern123</code>
-              </div>
-            </div>
-          </div>
-
           <p className="mt-6 text-center text-xs text-slate-400 dark:text-slate-600">
             Access is managed by your administrator.{' '}
             <Link href="/register" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">

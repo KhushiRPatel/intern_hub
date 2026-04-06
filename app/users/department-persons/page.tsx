@@ -79,15 +79,38 @@ function EditModal({ person, departments, onSave, onCancel, submitting }: {
     phone: person.phone ?? '',
     department_id: person.department_id,
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [field]: e.target.value }));
 
+  // ── Phone handler with validation ──────────────────────────────────────────
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 10
+    let value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    setForm(p => ({ ...p, phone: value }));
+
+    // Real-time validation
+    if (value && value.length !== 10) {
+      setFormErrors((p) => ({
+        ...p,
+        phone: "Phone must be exactly 10 digits",
+      }));
+    } else {
+      setFormErrors((p) => {
+        const updated = { ...p };
+        delete updated.phone;
+        return updated;
+      });
+    }
+  };
+
   const handleSave = () => {
     if (!form.name.trim()) { setError('Name is required'); return; }
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setError('Valid email is required'); return; }
     if (!form.department_id) { setError('Department is required'); return; }
+    if (form.phone.trim() && form.phone.trim().length !== 10) { setError('Phone must be exactly 10 digits'); return; }
     setError('');
     onSave(form);
   };
@@ -112,7 +135,23 @@ function EditModal({ person, departments, onSave, onCancel, submitting }: {
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
-          <Input type="text" value={form.phone} onChange={set('phone')} placeholder="Phone number" />
+          <input
+            type="tel"
+            value={form.phone}
+            onChange={handlePhoneChange}
+            placeholder="e.g. 9876543210"
+            maxLength={10}
+            className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 text-slate-800 dark:text-slate-200 dark:bg-slate-800 transition-colors ${
+              formErrors.phone
+                ? "border-red-400 dark:border-red-400 focus:ring-red-400"
+                : "border-slate-300 dark:border-slate-600 focus:ring-blue-400"
+            }`}
+          />
+          {formErrors.phone ? (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">{formErrors.phone}</p>
+          ) : (
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Optional. Must be exactly 10 digits.</p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
