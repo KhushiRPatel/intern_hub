@@ -36,7 +36,7 @@ function MessageBubble({ msg, isDark }: { msg: SerializableChatMessage; isDark: 
           ? 'bg-green-600 text-white rounded-br-sm px-5 py-3'
           : `${isDark ? 'bg-slate-800' : 'bg-white'} ${textClass} border ${borderClass} rounded-bl-sm px-5 py-4`
         }`}>
-        <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
+        <p className="whitespace-pre-wrap wrap-break-word leading-relaxed">{msg.content}</p>
 
         {/* Structured Table */}
         {msg.tableData && (
@@ -56,7 +56,7 @@ function MessageBubble({ msg, isDark }: { msg: SerializableChatMessage; isDark: 
                   {msg.tableData.rows.map((row, i) => (
                     <tr key={i} className={`transition-colors ${isDark ? 'hover:bg-slate-700/40' : 'hover:bg-slate-50'}`}>
                       {msg.tableData!.columns.map((col) => (
-                        <td key={col} className={`px-4 py-2.5 max-w-[200px] truncate ${textClass}`} title={String(row[col] ?? '')}>
+                        <td key={col} className={`px-4 py-2.5 max-w-50 truncate ${textClass}`} title={String(row[col] ?? '')}>
                           {row[col] === null || row[col] === undefined ? (
                             <span className={mutedClass}>—</span>
                           ) : (
@@ -132,6 +132,10 @@ export default function ChatbotPage() {
         'Content-Type': 'application/json',
         'x-user-role': user?.role || 'admin',
       };
+
+      if (user?.role === 'department_person' && user?.department_id) {
+        headers['x-department-id'] = user.department_id;
+      }
 
       const response = await fetch(`${chatbotConfig.apiBaseUrl}/api/v0/ask`, {
         method: 'POST',
