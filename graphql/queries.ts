@@ -94,10 +94,14 @@ export const GET_DEPARTMENT_PERSONS = gql`
   query GetDepartmentPersons(
     $where:    users_bool_exp!
     $order_by: [users_order_by!]
+    $limit:    Int
+    $offset:   Int
   ) {
     users(
       where: { _and: [{ role: { _eq: "department_person" } }, $where] }
       order_by: $order_by
+      limit: $limit
+      offset: $offset
     ) {
       id
       name

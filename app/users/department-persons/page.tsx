@@ -230,8 +230,14 @@ export default function DepartmentPersonsPage() {
     return conditions.length === 0 ? {} : conditions.length === 1 ? conditions[0] : { _and: conditions };
   };
 
-  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[] }>(GET_DEPARTMENT_PERSONS, {
-    variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
+  const currentOffset = (currentPage - 1) * ITEMS_PER_PAGE;
+  const deptPersonWhere = useMemo(
+    () => buildWhere(),
+    [deptPersonFilters.search, deptPersonFilters.department],
+  );
+
+  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[]; users_aggregate: { aggregate: { count: number } } }>(GET_DEPARTMENT_PERSONS, {
+    variables: { where: deptPersonWhere, order_by: [{ created_at: 'desc' }], limit: ITEMS_PER_PAGE, offset: currentOffset },
     skip: IS_DEMO || isLoading,
     fetchPolicy: 'network-only',
   });
@@ -240,33 +246,32 @@ export default function DepartmentPersonsPage() {
   const [deleteMutation] = useMutation(DELETE_DEPARTMENT_PERSON, { onCompleted: () => refetch() });
 
   // ── Derived data ──
-  const allPersons: DeptPerson[] = IS_DEMO ? demoPersons : (gqlData?.users ?? []);
-  const persons = useMemo(() => {
-    if (!IS_DEMO) return allPersons;
-    return allPersons.filter(p => {
+  const demoFilteredPersons = useMemo(() => {
+    return demoPersons.filter(p => {
       const matchSearch = !deptPersonFilters.search || p.name.toLowerCase().includes(deptPersonFilters.search.toLowerCase()) || p.email.toLowerCase().includes(deptPersonFilters.search.toLowerCase());
       const matchDept = !deptPersonFilters.department || p.department_id === deptPersonFilters.department;
       return matchSearch && matchDept;
     });
-  }, [allPersons, deptPersonFilters]);
+  }, [demoPersons, deptPersonFilters]);
+
+  const persons = IS_DEMO ? demoFilteredPersons.slice(currentOffset, currentOffset + ITEMS_PER_PAGE) : (gqlData?.users ?? []);
 
   const loading = !IS_DEMO && gqlLoading;
   const errorMsg = gqlError?.message ?? null;
   const hasFilter = deptPersonFilters.search || deptPersonFilters.department;
-  const totalPages = Math.max(1, Math.ceil(persons.length / ITEMS_PER_PAGE));
+  const totalItems = IS_DEMO ? demoFilteredPersons.length : (gqlData?.users_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
 
   useEffect(() => {
     setCurrentPage(1);
   }, [deptPersonFilters.search, deptPersonFilters.department]);
 
   useEffect(() => {
+    if (loading || totalItems === 0) return;
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  }, [currentPage, loading, totalItems, totalPages]);
 
-  const paginatedPersons = useMemo(
-    () => persons.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
-    [persons, currentPage],
-  );
+  const paginatedPersons = useMemo(() => persons, [persons]);
 
   // ── Handlers ──
   const handleEdit = (person: DeptPerson) => setEditTarget(person);
@@ -337,7 +342,7 @@ export default function DepartmentPersonsPage() {
         <div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Department Persons</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {persons.length} person{persons.length !== 1 ? 's' : ''} found
+            {totalItems} person{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         <Button
@@ -434,7 +439,7 @@ export default function DepartmentPersonsPage() {
         )}
         <Pagination
           currentPage={currentPage}
-          totalItems={persons.length}
+          totalItems={totalItems}
           pageSize={ITEMS_PER_PAGE}
           onPageChange={setCurrentPage}
         />

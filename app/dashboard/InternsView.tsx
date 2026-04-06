@@ -73,9 +73,23 @@ export function InternsView() {
     return where;
   };
 
+  const internsWhere = useMemo(
+    () => buildWhere(),
+    [search, dept, college, status, user?.role, user?.id, user?.department_id],
+  );
+
   const { data: internGqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(
     GET_INTERNS,
-    { variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] }, skip: IS_DEMO },
+    {
+      variables: {
+        where: internsWhere,
+        order_by: [{ created_at: 'desc' }],
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+      },
+      skip: IS_DEMO,
+      fetchPolicy: 'network-only',
+    },
   );
   const { data: deptData }        = useQuery(GET_DEPARTMENTS,    { skip: IS_DEMO });
   const { data: collegeData }     = useQuery(GET_COLLEGES,       { skip: IS_DEMO });
@@ -86,25 +100,26 @@ export function InternsView() {
   const cols = collegeData   as any;
   const dep  = deptData      as any;
 
-  const interns  = IS_DEMO ? demoInterns  : (gql?.interns ?? []) as InternData[];
+  const interns  = IS_DEMO
+    ? demoInterns.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : (gql?.interns ?? []) as InternData[];
   const colleges = IS_DEMO ? demoColleges : (cols?.interns?.map((i: { college: string }) => i.college) ?? []) as string[];
   const depts    = IS_DEMO ? demoStore.getDepartments() : (dep?.departments ?? []);
   const loading  = IS_DEMO ? false : gqlLoading;
   const errorMsg = IS_DEMO ? undefined : gqlError?.message;
-  const totalPages = Math.max(1, Math.ceil(interns.length / ITEMS_PER_PAGE));
+  const totalItems = IS_DEMO ? demoInterns.length : (gql?.interns_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, dept, college, status]);
 
   useEffect(() => {
+    if (loading || totalItems === 0) return;
     if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
+  }, [currentPage, loading, totalItems, totalPages]);
 
-  const paginatedInterns = useMemo(
-    () => interns.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
-    [interns, currentPage],
-  );
+  const paginatedInterns = useMemo(() => interns, [interns]);
 
   const handleEdit = (intern: InternData) => {
     setEditTarget(intern);
@@ -218,7 +233,7 @@ export function InternsView() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Interns</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {interns.length} intern{interns.length !== 1 ? 's' : ''} found
+            {totalItems} intern{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         {isAdmin && (
@@ -256,7 +271,7 @@ export function InternsView() {
         />
         <Pagination
           currentPage={currentPage}
-          totalItems={interns.length}
+          totalItems={totalItems}
           pageSize={ITEMS_PER_PAGE}
           onPageChange={setCurrentPage}
         />
