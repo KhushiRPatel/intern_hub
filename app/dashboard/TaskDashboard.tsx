@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import { useAppDispatch, useUI } from '@/lib/hooks';
@@ -12,9 +12,12 @@ import TaskFilters, { TaskFilterOptions } from '@/app/components/Tasks/TaskFilte
 import TaskDetailModal from '@/app/components/Tasks/TaskDetailModal';
 import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS } from '@/graphql/queries';
+import { Pagination } from '@/app/components/ui/Pagination';
 
 interface Department { id: string; name: string; }
 interface Intern     { id: string; name: string; department_id: string; }
+
+const ITEMS_PER_PAGE = 9;
 
 export const TaskDashboard: React.FC = () => {
   const { user, token } = useAuthContext();
@@ -29,6 +32,7 @@ export const TaskDashboard: React.FC = () => {
   const [isLoading,    setIsLoading]    = useState(false);
   const [toast,        setToast]        = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [interns,      setInterns]      = useState<Intern[]>([]);
+  const [currentPage,  setCurrentPage]  = useState(1);
 
   // Track whether we've already handled the taskId param so we don't re-open on every re-render
   const handledTaskId = useRef<string | null>(null);
@@ -81,6 +85,10 @@ export const TaskDashboard: React.FC = () => {
 
   useEffect(() => { fetchTasks(); fetchInterns(); }, [user, token]);
   useEffect(() => { fetchTasks(); }, [taskFilters]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [taskFilters.search, taskFilters.status, taskFilters.priority, taskFilters.department]);
 
   // Auto-open task detail when navigated here via ?taskId=<id>
   useEffect(() => {
@@ -176,6 +184,16 @@ export const TaskDashboard: React.FC = () => {
     ).length, color: 'red' as const },
   ];
 
+  const totalPages = Math.max(1, Math.ceil(tasks.length / ITEMS_PER_PAGE));
+  const paginatedTasks = useMemo(
+    () => tasks.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [tasks, currentPage],
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   return (
     <div className="space-y-6">
 
@@ -240,7 +258,7 @@ export const TaskDashboard: React.FC = () => {
           />
 
           <TaskList
-            tasks={tasks}
+            tasks={paginatedTasks}
             isLoading={isLoading}
             onEdit={(task) => { setSelectedTask(task); dispatch(openAddTaskModal()); }}
             onDelete={handleDeleteTask}
@@ -251,6 +269,13 @@ export const TaskDashboard: React.FC = () => {
             canChangeStatus={canChangeStatus}
             showInternName={!isIntern}
             userRole={user?.role ?? 'intern'}
+          />
+
+          <Pagination
+            currentPage={currentPage}
+            totalItems={tasks.length}
+            pageSize={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
           />
         </>
       )}

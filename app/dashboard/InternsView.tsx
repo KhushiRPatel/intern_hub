@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
@@ -21,8 +21,10 @@ import {
 } from '@/lib/internForm';
 import { FilterBar } from './FilterBar';
 import { DeleteModal } from './DeleteModal';
+import { Pagination } from '@/app/components/ui/Pagination';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const ITEMS_PER_PAGE = 10;
 
 export function InternsView() {
   const { user, token } = useAuth();
@@ -35,6 +37,7 @@ export function InternsView() {
 
   const [formBusy, setFormBusy]     = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
     dispatch(addNotification({
@@ -70,9 +73,23 @@ export function InternsView() {
     return where;
   };
 
+  const internsWhere = useMemo(
+    () => buildWhere(),
+    [search, dept, college, status, user?.role, user?.id, user?.department_id],
+  );
+
   const { data: internGqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(
     GET_INTERNS,
-    { variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] }, skip: IS_DEMO },
+    {
+      variables: {
+        where: internsWhere,
+        order_by: [{ created_at: 'desc' }],
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+      },
+      skip: IS_DEMO,
+      fetchPolicy: 'network-only',
+    },
   );
   const { data: deptData }        = useQuery(GET_DEPARTMENTS,    { skip: IS_DEMO });
   const { data: collegeData }     = useQuery(GET_COLLEGES,       { skip: IS_DEMO });
@@ -83,11 +100,26 @@ export function InternsView() {
   const cols = collegeData   as any;
   const dep  = deptData      as any;
 
-  const interns  = IS_DEMO ? demoInterns  : (gql?.interns ?? []) as InternData[];
+  const interns  = IS_DEMO
+    ? demoInterns.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : (gql?.interns ?? []) as InternData[];
   const colleges = IS_DEMO ? demoColleges : (cols?.interns?.map((i: { college: string }) => i.college) ?? []) as string[];
   const depts    = IS_DEMO ? demoStore.getDepartments() : (dep?.departments ?? []);
   const loading  = IS_DEMO ? false : gqlLoading;
   const errorMsg = IS_DEMO ? undefined : gqlError?.message;
+  const totalItems = IS_DEMO ? demoInterns.length : (gql?.interns_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, dept, college, status]);
+
+  useEffect(() => {
+    if (loading || totalItems === 0) return;
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, loading, totalItems, totalPages]);
+
+  const paginatedInterns = useMemo(() => interns, [interns]);
 
   const handleEdit = (intern: InternData) => {
     setEditTarget(intern);
@@ -201,7 +233,7 @@ export function InternsView() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Interns</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {interns.length} intern{interns.length !== 1 ? 's' : ''} found
+            {totalItems} intern{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         {isAdmin && (
@@ -229,12 +261,19 @@ export function InternsView() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <InternTable
-          interns={interns}
+          interns={paginatedInterns}
+          rowOffset={(currentPage - 1) * ITEMS_PER_PAGE}
           loading={loading}
           error={errorMsg}
           userRole={user?.role ?? 'intern'}
           onEdit={handleEdit}
           onDelete={(id, name) => setDeleteTarget({ id, name })}
+        />
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalItems}
+          pageSize={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
         />
       </div>
 

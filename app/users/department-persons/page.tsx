@@ -12,8 +12,10 @@ import { DELETE_DEPARTMENT_PERSON, UPDATE_DEPARTMENT_PERSON } from '@/graphql/mu
 import { Button } from '@/app/components/ui/Button';
 import { Input, Select } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
+import { Pagination } from '@/app/components/ui/Pagination';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const ITEMS_PER_PAGE = 10;
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 interface DeptPerson {
@@ -210,6 +212,7 @@ export default function DepartmentPersonsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // ── Demo state ──
   const [demoPersons, setDemoPersons] = useState<DeptPerson[]>(DEMO_PERSONS);
@@ -227,28 +230,48 @@ export default function DepartmentPersonsPage() {
     return conditions.length === 0 ? {} : conditions.length === 1 ? conditions[0] : { _and: conditions };
   };
 
-  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[] }>(GET_DEPARTMENT_PERSONS, {
-    variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
+  const currentOffset = (currentPage - 1) * ITEMS_PER_PAGE;
+  const deptPersonWhere = useMemo(
+    () => buildWhere(),
+    [deptPersonFilters.search, deptPersonFilters.department],
+  );
+
+  const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[]; users_aggregate: { aggregate: { count: number } } }>(GET_DEPARTMENT_PERSONS, {
+    variables: { where: deptPersonWhere, order_by: [{ created_at: 'desc' }], limit: ITEMS_PER_PAGE, offset: currentOffset },
     skip: IS_DEMO || isLoading,
+    fetchPolicy: 'network-only',
   });
 
   const [updateMutation] = useMutation(UPDATE_DEPARTMENT_PERSON, { onCompleted: () => refetch() });
   const [deleteMutation] = useMutation(DELETE_DEPARTMENT_PERSON, { onCompleted: () => refetch() });
 
   // ── Derived data ──
-  const allPersons: DeptPerson[] = IS_DEMO ? demoPersons : (gqlData?.users ?? []);
-  const persons = useMemo(() => {
-    if (!IS_DEMO) return allPersons;
-    return allPersons.filter(p => {
+  const demoFilteredPersons = useMemo(() => {
+    return demoPersons.filter(p => {
       const matchSearch = !deptPersonFilters.search || p.name.toLowerCase().includes(deptPersonFilters.search.toLowerCase()) || p.email.toLowerCase().includes(deptPersonFilters.search.toLowerCase());
       const matchDept = !deptPersonFilters.department || p.department_id === deptPersonFilters.department;
       return matchSearch && matchDept;
     });
-  }, [allPersons, deptPersonFilters]);
+  }, [demoPersons, deptPersonFilters]);
+
+  const persons = IS_DEMO ? demoFilteredPersons.slice(currentOffset, currentOffset + ITEMS_PER_PAGE) : (gqlData?.users ?? []);
 
   const loading = !IS_DEMO && gqlLoading;
   const errorMsg = gqlError?.message ?? null;
   const hasFilter = deptPersonFilters.search || deptPersonFilters.department;
+  const totalItems = IS_DEMO ? demoFilteredPersons.length : (gqlData?.users_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deptPersonFilters.search, deptPersonFilters.department]);
+
+  useEffect(() => {
+    if (loading || totalItems === 0) return;
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, loading, totalItems, totalPages]);
+
+  const paginatedPersons = useMemo(() => persons, [persons]);
 
   // ── Handlers ──
   const handleEdit = (person: DeptPerson) => setEditTarget(person);
@@ -319,7 +342,7 @@ export default function DepartmentPersonsPage() {
         <div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Department Persons</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {persons.length} person{persons.length !== 1 ? 's' : ''} found
+            {totalItems} person{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         <Button
@@ -401,7 +424,7 @@ export default function DepartmentPersonsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {persons.map(p => (
+                {paginatedPersons.map(p => (
                   <PersonRow
                     key={p.id}
                     person={p}
@@ -414,6 +437,12 @@ export default function DepartmentPersonsPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalItems}
+          pageSize={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ── Modals ── */}
