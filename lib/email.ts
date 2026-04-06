@@ -16,7 +16,7 @@ function getTransporter() {
 }
 
 function getSMTPFrom() {
-  return process.env.SMTP_FROM || 'InternMS <noreply@internms.com>';
+  return process.env.SMTP_FROM || 'InternArk <noreply@internark.com>';
 }
 
 export async function sendPasswordSetupEmail(
@@ -27,10 +27,9 @@ export async function sendPasswordSetupEmail(
   const transporter = getTransporter();
 
   if (!transporter) {
-    console.log('\n[EMAIL] SMTP not configured — password setup link:');
+    console.log('\n[EMAIL] SMTP not configured — reset link logged below:');
     console.log(`  To:   ${email}`);
-    console.log(`  Link: ${resetLink}`);
-    console.log('  → Add SMTP_HOST / SMTP_USER / SMTP_PASS to .env.local to enable real emails.\n');
+    console.log(`  Link: ${resetLink}\n`);
     return { sent: false, error: 'SMTP not configured' };
   }
 
@@ -38,7 +37,7 @@ export async function sendPasswordSetupEmail(
     await transporter.sendMail({
       from: getSMTPFrom(),
       to: email,
-      subject: 'Welcome to InternMS — Set Your Password',
+      subject: 'Welcome to InternArk — Set Your Password',
       html: buildEmailHtml(name, resetLink),
     });
     return { sent: true };
@@ -50,97 +49,208 @@ export async function sendPasswordSetupEmail(
 }
 
 function buildEmailHtml(name: string, resetLink: string): string {
+  const year = new Date().getFullYear();
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Welcome to InternMS</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Welcome to InternArk</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Sora:wght@700;800&display=swap" rel="stylesheet"/>
 </head>
 
-<body style="margin:0;padding:0;background:#f6f7fb;font-family:Inter,Segoe UI,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#EAECF2;font-family:'DM Sans',Arial,sans-serif;">
 
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:30px 15px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
     <tr>
       <td align="center">
 
-        <!-- Container -->
-        <table width="100%" max-width="520px" cellpadding="0" cellspacing="0"
-          style="background:#ffffff;border-radius:18px;overflow:hidden;
-          box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+        <!-- Outer Card -->
+        <table width="100%" style="max-width:540px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 4px 40px rgba(18,22,40,0.13);" cellpadding="0" cellspacing="0">
 
-          <!-- Header -->
+          <!-- ═══════════════ HEADER ═══════════════ -->
           <tr>
-            <td align="center"
-              style="background:linear-gradient(135deg,#4f46e5,#7c3aed);
-              padding:40px 20px;color:#ffffff;">
+            <td align="center" style="background:#131929;padding:44px 40px 36px;">
 
-              <div style="font-size:40px;margin-bottom:10px;">🚀</div>
+              <!-- Logo -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:26px;">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="font-family:'Sora',Arial,sans-serif;font-size:20px;font-weight:800;color:#ffffff;letter-spacing:0.01em;">
+                      INTERN<span style="color:#94a3b8;">ARK</span>
+                    </span>
+                  </td>
+                </tr>
+              </table>
 
-              <h1 style="margin:0;font-size:24px;font-weight:800;">
-                Welcome to InternMS
-              </h1>
-
-              <p style="margin-top:8px;font-size:14px;opacity:0.85;">
-                Your journey starts here
-              </p>
-            </td>
-          </tr>
-
-          <!-- Body -->
-          <tr>
-            <td style="padding:35px 30px;">
-
-              <p style="margin:0 0 10px;font-size:16px;color:#111827;">
-                Hi <strong>${name}</strong>,
-              </p>
-
-              <p style="margin:0 0 20px;color:#6b7280;font-size:15px;line-height:1.6;">
-                Your InternMS account has been successfully created.
-                Click the button below to set your password and access your dashboard.
-              </p>
-
-              <!-- CTA Button -->
-              <div style="text-align:center;margin:30px 0;">
-                <a href="${resetLink}"
-                  style="display:inline-block;
-                  background:linear-gradient(135deg,#4f46e5,#7c3aed);
-                  color:#ffffff;
-                  padding:14px 32px;
-                  font-size:15px;
-                  font-weight:600;
-                  border-radius:10px;
-                  text-decoration:none;
-                  box-shadow:0 6px 18px rgba(79,70,229,0.3);">
-                  Set Your Password →
-                </a>
+              <!-- Badge -->
+              <div style="display:inline-block;background:rgba(34,211,138,0.12);border:1px solid rgba(34,211,138,0.25);color:#34d399;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:22px;">
+                ● &nbsp;Account Created
               </div>
 
-              <!-- Divider -->
-              <hr style="border:none;border-top:1px solid #e5e7eb;margin:25px 0;" />
-
-              <!-- Info -->
-              <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
-                ⏳ This link will expire in <strong>24 hours</strong>.<br/>
-                If you didn’t request this, you can safely ignore this email.
+              <!-- Headline -->
+              <h1 style="font-family:'Sora',Arial,sans-serif;font-size:26px;font-weight:800;color:#ffffff;line-height:1.25;margin:0 0 10px;">
+                Welcome aboard,<br/>let's get you in. 🎉
+              </h1>
+              <p style="font-size:13.5px;color:#7c8fa8;line-height:1.65;margin:0;">
+                Your InternArk account is ready. One step left —<br/>
+                set your password to unlock your dashboard.
               </p>
 
             </td>
           </tr>
 
-          <!-- Footer -->
+          <!-- Gradient divider line -->
           <tr>
-            <td align="center"
-              style="padding:20px;background:#f9fafb;font-size:12px;color:#9ca3af;">
-              
-              © ${new Date().getFullYear()} InternMS <br/>
-              Built for smarter internship management
+            <td style="height:1px;background:linear-gradient(90deg,#131929,rgba(34,211,138,0.5),#131929);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+
+          <!-- ═══════════════ BODY ═══════════════ -->
+          <tr>
+            <td style="padding:36px 40px;">
+
+              <!-- Greeting -->
+              <p style="font-size:16px;color:#131929;font-weight:500;margin:0 0 12px;">
+                Hi <strong style="color:#0f172a;font-weight:700;">${name}</strong>,
+              </p>
+              <p style="font-size:14.5px;color:#52627a;line-height:1.75;margin:0 0 28px;">
+                You've been added to <strong style="color:#131929;">InternArk</strong> as an intern.
+                Your profile is live and your mentor is waiting.
+                Here's what happens next:
+              </p>
+
+              <!-- Step 1 -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border:1px solid #e8ecf3;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:top;padding-right:14px;">
+                          <div style="width:30px;height:30px;border-radius:8px;background:#131929;text-align:center;line-height:30px;font-size:12px;font-weight:700;color:#34d399;">01</div>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <p style="font-size:13.5px;color:#374151;font-weight:500;margin:0;">Set your password</p>
+                          <p style="font-size:12px;color:#8892a4;margin:2px 0 0;">Click the button below to create your secure password</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Step 2 -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border:1px solid #e8ecf3;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:top;padding-right:14px;">
+                          <div style="width:30px;height:30px;border-radius:8px;background:#131929;text-align:center;line-height:30px;font-size:12px;font-weight:700;color:#34d399;">02</div>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <p style="font-size:13.5px;color:#374151;font-weight:500;margin:0;">Complete your profile</p>
+                          <p style="font-size:12px;color:#8892a4;margin:2px 0 0;">Add your college details, skills and photo</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Step 3 -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border:1px solid #e8ecf3;border-radius:12px;margin-bottom:30px;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:top;padding-right:14px;">
+                          <div style="width:30px;height:30px;border-radius:8px;background:#131929;text-align:center;line-height:30px;font-size:12px;font-weight:700;color:#34d399;">03</div>
+                        </td>
+                        <td style="vertical-align:middle;">
+                          <p style="font-size:13.5px;color:#374151;font-weight:500;margin:0;">Start your internship</p>
+                          <p style="font-size:12px;color:#8892a4;margin:2px 0 0;">View tasks, track progress and connect with your team</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td align="center">
+                    <a href="${resetLink}"
+                      style="display:inline-block;background:#131929;color:#ffffff;font-family:'DM Sans',Arial,sans-serif;font-size:14.5px;font-weight:600;padding:15px 40px;border-radius:12px;text-decoration:none;letter-spacing:0.01em;">
+                      Set Your Password &nbsp;<span style="color:#34d399;">→</span>
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Info Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf7;border:1px solid #bbf7d0;border-radius:12px;margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 18px;">
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:top;padding-right:10px;font-size:16px;">ℹ️</td>
+                        <td>
+                          <p style="font-size:12.5px;color:#166534;line-height:1.65;margin:0;">
+                            <strong style="color:#14532d;">This link expires in 24 hours.</strong>
+                            If you didn't expect this email, you can safely ignore it —
+                            your account won't be activated without a password.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="height:1px;background:#eef0f6;font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
+
+              <!-- Bottom note -->
+              <p style="font-size:12px;color:#94a3b8;text-align:center;line-height:1.6;margin:20px 0 0;">
+                Questions? Reply to this email or reach out to your internship coordinator.<br/>
+                <span style="color:#cbd5e1;">internark.com &nbsp;·&nbsp; support@internark.com</span>
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- ═══════════════ FOOTER ═══════════════ -->
+          <tr>
+            <td align="center" style="background:#f7f9fc;border-top:1px solid #eef0f6;padding:24px 40px;">
+
+              <!-- Footer Logo -->
+              <table cellpadding="0" cellspacing="0" style="margin-bottom:10px;">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="font-family:'Sora',Arial,sans-serif;font-size:13px;font-weight:800;color:#131929;letter-spacing:0.01em;">
+                      INTERN<span style="color:#94a3b8;">ARK</span>
+                    </span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:11.5px;color:#94a3b8;line-height:1.7;margin:0;">
+                © ${year} InternArk &nbsp;·&nbsp; Built for smarter internship management<br/>
+                <a href="#" style="color:#64748b;text-decoration:none;">Unsubscribe</a>
+                &nbsp;·&nbsp;
+                <a href="#" style="color:#64748b;text-decoration:none;">Privacy Policy</a>
+              </p>
 
             </td>
           </tr>
 
         </table>
+        <!-- /Outer Card -->
 
       </td>
     </tr>
@@ -148,5 +258,5 @@ function buildEmailHtml(name: string, resetLink: string): string {
 
 </body>
 </html>
-`;
+  `;
 }
