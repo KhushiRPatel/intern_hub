@@ -117,18 +117,29 @@ export default function Sidebar() {
 
   return (
     <aside className={`${
-      sidebarOpen ? 'w-64' : 'w-0'
+      sidebarOpen ? 'w-64' : 'w-16'
     } transition-all duration-300 flex flex-col shrink-0 h-full overflow-hidden
       bg-white dark:bg-slate-950
       border-r border-slate-200 dark:border-slate-800
     `}>
       {/* ── Brand ── */}
-      <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <Logo iconSize={32} />
+      <div className={`h-16 flex items-center border-b border-slate-200 dark:border-slate-800 shrink-0 ${sidebarOpen ? 'px-5 justify-between' : 'px-3 justify-between'}`}>
+        <Logo iconSize={sidebarOpen ? 32 : 28} iconOnly />
+        <button
+          type="button"
+          onClick={() => dispatch(toggleSidebar())}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-100 hover:text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d={sidebarOpen ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'} />
+          </svg>
+        </button>
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+      <nav className={`flex-1 overflow-y-auto py-4 ${sidebarOpen ? 'px-3 space-y-5' : 'px-2 space-y-4'}`}>
         {SECTIONS.map((section) => {
           const visibleItems = section.items.filter((item) =>
             item.roles.includes(user?.role ?? ''),
@@ -137,26 +148,30 @@ export default function Sidebar() {
 
           return (
             <div key={section.label}>
-              <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
-                {section.label}
-              </p>
-              <div className="space-y-0.5">
+              {sidebarOpen && (
+                <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
+                  {section.label}
+                </p>
+              )}
+              <div className={sidebarOpen ? 'space-y-0.5' : 'space-y-1'}>
                 {visibleItems.map((item) => {
                   const active = isActive(item.href);
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      title={sidebarOpen ? undefined : item.label}
                       className={[
-                        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                        'flex items-center rounded-xl text-sm font-medium transition-all duration-150',
+                        sidebarOpen ? 'gap-3 px-3 py-2.5' : 'justify-center px-2 py-3',
                         active
                           ? 'bg-primary-600 text-white shadow-md shadow-primary-200 dark:shadow-primary-900/30'
                           : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-800 dark:hover:text-slate-200',
                       ].join(' ')}
                     >
                       {item.icon}
-                      {item.label}
-                      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
+                      {sidebarOpen && item.label}
+                      {active && sidebarOpen && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
                     </Link>
                   );
                 })}
@@ -169,16 +184,20 @@ export default function Sidebar() {
       {/* ── Profile link (intern only) ── */}
       {user?.role === 'intern' && (
         <div className="px-3 pb-2 shrink-0">
-          <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
-            MY ACCOUNT
-          </p>
+          {sidebarOpen && (
+            <p className="text-[0.65rem] font-semibold tracking-widest px-3 mb-1.5 uppercase text-slate-400 dark:text-slate-600">
+              MY ACCOUNT
+            </p>
+          )}
           {(() => {
             const active = isActive('/profile');
             return (
               <Link
                 href="/profile"
+                title={sidebarOpen ? undefined : 'My Profile'}
                 className={[
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                  'flex items-center rounded-xl text-sm font-medium transition-all duration-150',
+                  sidebarOpen ? 'gap-3 px-3 py-2.5' : 'justify-center px-2 py-3',
                   active
                     ? 'bg-primary-600 text-white shadow-md shadow-primary-200 dark:shadow-primary-900/30'
                     : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-800 dark:hover:text-slate-200',
@@ -187,8 +206,8 @@ export default function Sidebar() {
                 <svg className="w-[1.1rem] h-[1.1rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                My Profile
-                {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
+                {sidebarOpen && 'My Profile'}
+                {active && sidebarOpen && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
               </Link>
             );
           })()}
@@ -197,12 +216,14 @@ export default function Sidebar() {
 
       {/* ── User card ── */}
       <div className="p-3 border-t border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="rounded-xl p-3 flex items-center gap-3 bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+        <div className={`rounded-xl p-3 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-800`}>
           {user && <Avatar name={user.name} size="sm" />}
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm truncate leading-none text-slate-800 dark:text-white">{user?.name}</p>
-            <div className="mt-1">{user?.role && <RoleBadge role={user.role} />}</div>
-          </div>
+          {sidebarOpen && (
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm truncate leading-none text-slate-800 dark:text-white">{user?.name}</p>
+              <div className="mt-1">{user?.role && <RoleBadge role={user.role} />}</div>
+            </div>
+          )}
         </div>
       </div>
     </aside>
