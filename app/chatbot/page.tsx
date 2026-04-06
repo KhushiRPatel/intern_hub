@@ -2,7 +2,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTheme, useAppDispatch, useChatbotState } from '@/lib/hooks';
+import { useTheme as useContextTheme } from '@/app/context/ThemeContext';
+import { useAppDispatch, useChatbotState } from '@/lib/hooks';
 import { setInputValue, setIsLoading, addMessage, clearMessages, SerializableChatMessage } from '@/lib/slices/chatbotSlice';
 import { useAuth } from '@/app/context/AuthContext';
 import { chatbotConfig } from '@/lib/chatbot-config';
@@ -100,7 +101,7 @@ function MessageBubble({ msg, isDark }: { msg: SerializableChatMessage; isDark: 
 
 export default function ChatbotPage() {
   const router = useRouter();
-  const { isDark } = useTheme();
+  const { isDark } = useContextTheme();
   const { user } = useAuth();
   const dispatch = useAppDispatch();
   const { messages, inputValue, isLoading } = useChatbotState();

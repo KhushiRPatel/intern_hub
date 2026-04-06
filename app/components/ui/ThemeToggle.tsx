@@ -1,17 +1,15 @@
 'use client';
-import { useAppDispatch, useTheme } from '@/lib/hooks';
-import { toggleTheme } from '@/lib/slices/themeSlice';
+import { useTheme } from '@/app/context/ThemeContext';
 
 interface ThemeToggleProps {
   className?: string;
 }
 
 export function ThemeToggle({ className = '' }: ThemeToggleProps) {
-  const dispatch = useAppDispatch();
-  const { isDark } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
 
   const handleToggle = () => {
-    dispatch(toggleTheme());
+    toggleTheme();
   };
 
   return (

@@ -16,17 +16,11 @@ const ThemeContext = createContext<ThemeCtx>({
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('theme') as Theme | null;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initial: Theme = saved ?? (prefersDark ? 'dark' : 'light');
-    applyTheme(initial);
-    setTheme(initial);
-    setMounted(true);
-  }, []);
+  // Initialize state by reading the document class that the script applied
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light';
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  });
 
   const applyTheme = (t: Theme) => {
     document.documentElement.classList.toggle('dark', t === 'dark');
@@ -41,8 +35,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // Avoid hydration mismatch — render children immediately but suppress flicker
-  if (!mounted) return <>{children}</>;
+  // Sync with localStorage and system preference on first mount
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as Theme | null;
+    if (saved) {
+      setTheme(saved);
+      applyTheme(saved);
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const initial: Theme = prefersDark ? 'dark' : 'light';
+      setTheme(initial);
+      applyTheme(initial);
+    }
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, isDark: theme === 'dark' }}>
