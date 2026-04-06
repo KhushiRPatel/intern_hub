@@ -177,7 +177,7 @@ export default function Sidebar() {
                       ].join(' ')}
                     >
                       {item.icon}
-                      {sidebarOpen && item.label}
+                      {sidebarOpen && displayLabel}
                       {active && sidebarOpen && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
                     </Link>
                   );
