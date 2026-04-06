@@ -1,31 +1,82 @@
 export const DEPARTMENTS = ['.NET', 'SAP', 'AI', 'MOBILE', 'ODDO', 'RPA', 'PHP', 'QC'] as const;
 export type DepartmentName = typeof DEPARTMENTS[number];
 
-export const INTERN_STATUSES = ['active', 'completed', 'terminated'] as const;
+export const INTERN_STATUSES = ['applied', 'selected', 'active', 'completed', 'terminated', 'on_leave'] as const;
 export type InternStatus = typeof INTERN_STATUSES[number];
 
 export type UserRole = 'admin' | 'department_person' | 'intern';
 
 export interface InternData {
+    // System
     id: string;
+    user_id?: string;
+    created_at: string;
+    
+    // Personal
     name: string;
     email: string;
     phone?: string;
     alternate_phone?: string | null;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    blood_group?: string | null;
+    nationality?: string | null;
+    
+    // Address
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    pincode?: string | null;
+    country?: string | null;
+    
+    // Academic
     college: string;
     university?: string | null;
     college_email?: string | null;
+    college_city?: string | null;
+    college_state?: string | null;
     degree?: string;
     branch?: string;
     specialization?: string | null;
     graduation_year?: number | null;
+    current_year?: number | null;
+    cgpa?: number | null;
+    percentage?: number | null;
+    student_id?: string | null;
+    
+    // Internship
     department_id: string;
     department?: { id: string; name: string };
     start_date: string;
-    end_date?: string;
+    end_date?: string | null;
     status: InternStatus;
-    user_id?: string;
-    created_at: string;
+    duration_months?: number | null;
+    work_mode?: string | null;
+    stipend?: number | null;
+    offer_letter_date?: string | null;
+    joining_letter_date?: string | null;
+    
+    // Skills
+    skills?: string[] | null;
+    languages_known?: string[] | null;
+    tools?: string[] | null;
+    
+    // Social
+    linkedin_url?: string | null;
+    github_url?: string | null;
+    portfolio_url?: string | null;
+    
+    // Identity
+    aadhar_number?: string | null;
+    pan_number?: string | null;
+    
+    // Reference
+    reference_name?: string | null;
+    reference_contact?: string | null;
+    
+    // Notes
+    notes?: string | null;
 }
 
 export interface UserData {

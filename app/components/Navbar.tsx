@@ -1,5 +1,5 @@
 'use client';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/app/context/AuthContext';
@@ -20,11 +20,19 @@ const PAGE_NAMES: Record<string, string> = {
   '/profile': 'Profile',
 };
 
-function getPageName(pathname: string) {
+function getPageName(pathname: string, searchParams?: URLSearchParams) {
   const key = Object.keys(PAGE_NAMES)
     .filter(k => pathname === k || pathname.startsWith(k + '/'))
     .sort((a, b) => b.length - a.length)[0];
-  return PAGE_NAMES[key] ?? 'Dashboard';
+  
+  let pageName = PAGE_NAMES[key] ?? 'Dashboard';
+  
+  // Check if editing an intern
+  if (pathname === '/interns/add' && searchParams?.has('edit')) {
+    pageName = 'Edit Intern';
+  }
+  
+  return pageName;
 }
 
 export default function Navbar() {
@@ -33,7 +41,8 @@ export default function Navbar() {
   const { sidebarOpen } = useUI();
   const { isOpen: chatbotOpen } = useChatbotState();
   const pathname = usePathname();
-  const pageName = getPageName(pathname);
+  const searchParams = useSearchParams();
+  const pageName = getPageName(pathname, searchParams);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

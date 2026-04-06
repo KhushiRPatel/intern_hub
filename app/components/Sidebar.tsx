@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAppDispatch, useUI } from '@/lib/hooks';
 import { toggleSidebar } from '@/lib/slices/uiSlice';
@@ -105,6 +105,7 @@ export default function Sidebar() {
   const dispatch = useAppDispatch();
   const { sidebarOpen } = useUI();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   const matchingHrefs = NAV_HREFS.filter((h) => navHrefMatchesPath(h, pathname));
@@ -114,6 +115,9 @@ export default function Sidebar() {
       : null;
 
   const isActive = (href: string) => href === activeHref;
+  
+  // Check if we're in edit mode
+  const isEditMode = pathname === '/interns/add' && searchParams.has('edit');
 
   return (
     <aside className={`${
@@ -143,6 +147,9 @@ export default function Sidebar() {
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   const active = isActive(item.href);
+                  // Show "Edit Intern" when in edit mode for the "Add Intern" button
+                  const displayLabel = isEditMode && item.href === '/interns/add' ? 'Edit Intern' : item.label;
+                  
                   return (
                     <Link
                       key={item.href}
@@ -155,7 +162,7 @@ export default function Sidebar() {
                       ].join(' ')}
                     >
                       {item.icon}
-                      {item.label}
+                      {displayLabel}
                       {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white/60" />}
                     </Link>
                   );

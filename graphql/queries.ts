@@ -18,19 +18,51 @@ export const GET_INTERNS = gql`
       email
       phone
       alternate_phone
+      date_of_birth
+      gender
+      blood_group
+      nationality
+      address_line1
+      address_line2
+      city
+      state
+      pincode
+      country
       college
       university
       college_email
+      college_city
+      college_state
       degree
       branch
       specialization
       graduation_year
-      status
+      current_year
+      cgpa
+      percentage
+      student_id
+      department_id
       start_date
       end_date
+      status
+      duration_months
+      work_mode
+      stipend
+      offer_letter_date
+      joining_letter_date
+      skills
+      languages_known
+      tools
+      linkedin_url
+      github_url
+      portfolio_url
+      aadhar_number
+      pan_number
+      reference_name
+      reference_contact
+      notes
       user_id
       created_at
-      department_id
     }
     interns_aggregate(where: $where) {
       aggregate { count }
@@ -46,19 +78,51 @@ export const GET_INTERN_BY_ID = gql`
       email
       phone
       alternate_phone
+      date_of_birth
+      gender
+      blood_group
+      nationality
+      address_line1
+      address_line2
+      city
+      state
+      pincode
+      country
       college
       university
       college_email
+      college_city
+      college_state
       degree
       branch
       specialization
       graduation_year
-      status
+      current_year
+      cgpa
+      percentage
+      student_id
+      department_id
       start_date
       end_date
+      status
+      duration_months
+      work_mode
+      stipend
+      offer_letter_date
+      joining_letter_date
+      skills
+      languages_known
+      tools
+      linkedin_url
+      github_url
+      portfolio_url
+      aadhar_number
+      pan_number
+      reference_name
+      reference_contact
+      notes
       user_id
       created_at
-      department_id
     }
   }
 `;

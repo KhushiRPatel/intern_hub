@@ -71,13 +71,14 @@ export default function InternTable({
   const canView   = userRole === 'admin' || userRole === 'department_person';
   const canEdit   = userRole === 'admin' || userRole === 'department_person';
   const canDelete = userRole === 'admin';
+  const showDepartment = userRole !== 'department_person';
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm text-left">
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-            {['#', 'Intern', 'College', 'Department', 'Duration', 'Status', 'Actions'].map(h => (
+            {['#', 'Intern', 'College', ...(showDepartment ? ['Department'] : []), 'Duration', 'Status', 'Actions'].map(h => (
               <th
                 key={h}
                 className="px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap"
@@ -131,9 +132,11 @@ export default function InternTable({
               </td>
 
               {/* Department */}
-              <td className="px-4 py-3.5">
-                <DeptBadge name={departments.find(d => d.id === intern.department_id)?.name ?? '—'} />
-              </td>
+              {showDepartment && (
+                <td className="px-4 py-3.5">
+                  <DeptBadge name={departments.find(d => d.id === intern.department_id)?.name ?? '—'} />
+                </td>
+              )}
 
               {/* Duration */}
               <td className="px-4 py-3.5 whitespace-nowrap">

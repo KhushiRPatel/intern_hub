@@ -1,22 +1,19 @@
 'use client';
 import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAppDispatch, useUI } from '@/lib/hooks';
-import { openAddInternModal, closeAddInternModal, openImportModal, closeImportModal, openExportModal, closeExportModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
-import { addNotification } from '@/lib/slices/notificationSlice';
+import { openImportModal, closeImportModal, openExportModal, closeExportModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
+import { addNotificationAsync } from '@/lib/slices/notificationSlice';
 import { DEPARTMENTS, INTERN_STATUSES, InternData, DEMO_DEPARTMENTS } from '@/lib/constants';
 import { demoStore } from '@/lib/demoStore';
 import { GET_INTERNS, GET_DEPARTMENTS, GET_COLLEGES } from '@/graphql/queries';
 import { UPDATE_INTERN, DELETE_INTERN } from '@/graphql/mutations';
 import InternTable from '@/app/components/InternList/page';
-import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
 import {
-  internFormValuesToCreateApiBody,
   internFormValuesToDemoPayload,
-  internFormValuesToHasuraUpdateSet,
-  resolveInternFormDepartmentId,
 } from '@/lib/internForm';
 import { Button } from '@/app/components/ui/Button';
 import { Input, Select } from '@/app/components/ui/Input';
@@ -124,18 +121,20 @@ function DeleteModal({ name, onConfirm, onCancel, submitting }: {
 /* ── Main page ──────────────────────────────────────────────────────────────── */
 export default function InternsPage() {
   const { user, token, isLoading } = useAuth();
+  const router = useRouter();
   const dispatch = useAppDispatch();
-  const { showAddInternModal, showImportModal, showExportModal, internFilters } = useUI();
+  const { showImportModal, showExportModal, internFilters } = useUI();
   const { search, department: dept, college, status } = internFilters;
 
-  const [editTarget, setEditTarget] = useState<InternData | null>(null);
+  const isAdmin = user?.role === 'admin';
+  const isDeptPerson = user?.role === 'department_person';
+
   const [viewTarget, setViewTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [formBusy, setFormBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    dispatch(addNotification({
+    dispatch(addNotificationAsync({
       type,
       message: msg,
       duration: 4000,
@@ -197,59 +196,8 @@ export default function InternsPage() {
 
   /* ── Handlers ── */
   const handleView = (intern: InternData) => setViewTarget(intern);
-  const handleEdit = (intern: InternData) => { setEditTarget(intern); dispatch(openAddInternModal()); };
-
-  const handleFormSubmit = async (values: InternFormValues) => {
-    setFormBusy(true);
-    try {
-      const department_id = resolveInternFormDepartmentId(values, {
-        isDeptPerson: user?.role === 'department_person',
-        userDepartmentId: user?.department_id,
-      });
-      const demoPayload = internFormValuesToDemoPayload(values, department_id);
-
-      if (IS_DEMO) {
-        if (editTarget) {
-          demoStore.update(editTarget.id, demoPayload);
-          showToast(`${values.name} updated`);
-        } else {
-          demoStore.create(demoPayload);
-          showToast(`${values.name} added — demo mode`);
-        }
-        setDemoRefresh(n => n + 1);
-      } else {
-        if (editTarget) {
-          await updateMutation({
-            variables: {
-              id: editTarget.id,
-              set: internFormValuesToHasuraUpdateSet(values, department_id),
-            },
-          });
-          showToast(`${values.name} updated`);
-        } else {
-          const res = await fetch('/api/interns/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify(internFormValuesToCreateApiBody(values, department_id)),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Failed to add intern');
-          const emailMsg = data.emailSent ? ' · Setup email sent ✓' : ' · Email not configured';
-          showToast(`${values.name} added${emailMsg}`);
-          refetch();
-        }
-      }
-      dispatch(closeAddInternModal());
-      setEditTarget(null);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Operation failed', 'error');
-    } finally {
-      setFormBusy(false);
-    }
-  };
+  const handleEdit = (intern: InternData) => router.push(`/interns/add?edit=${intern.id}`);
+  const handleAddIntern = () => router.push('/interns/add');
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -268,7 +216,6 @@ export default function InternsPage() {
 
   const clearFilters = () => { dispatch(clearInternFilters()); };
 
-  const isAdmin = user?.role === 'admin';
   const showDept = user?.role === 'admin';
 
   return (
@@ -315,17 +262,19 @@ export default function InternsPage() {
               >
                 Import Excel
               </Button>
-              <Button
-                onClick={() => { setEditTarget(null); dispatch(openAddInternModal()); }}
-                leftIcon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                }
-              >
-                Add Intern
-              </Button>
             </>
+          )}
+          {(isAdmin || isDeptPerson) && (
+            <Button
+              onClick={handleAddIntern}
+              leftIcon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Add Intern
+            </Button>
           )}
         </div>
       </div>
@@ -353,15 +302,6 @@ export default function InternsPage() {
       </div>
 
       {/* ── Modals ── */}
-      <InternFormModal
-        isOpen={showAddInternModal}
-        onClose={() => { dispatch(closeAddInternModal()); setEditTarget(null); }}
-        onSubmit={handleFormSubmit}
-        initialData={editTarget}
-        departments={depts}
-        submitting={formBusy}
-      />
-
       {deleteTarget && (
         <DeleteModal
           name={deleteTarget.name}

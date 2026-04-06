@@ -8,7 +8,7 @@ import { GET_DEPARTMENTS } from "@/graphql/queries";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
 
-type FormValues = { name: string; email: string; department_id: string };
+type FormValues = { name: string; email: string; department_id: string; mobile_number: string };
 
 async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
   const text = await res.text();
@@ -54,6 +54,7 @@ export default function AddDepartmentPersonPage() {
     name: "",
     email: "",
     department_id: "",
+    mobile_number: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +84,7 @@ export default function AddDepartmentPersonPage() {
     if (!form.email.trim()) return "Email is required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Invalid email";
     if (!form.department_id) return "Department is required";
+    if (form.mobile_number.trim() && !/^\d{10}$/.test(form.mobile_number.trim())) return "Mobile number must be exactly 10 digits";
     return null;
   };
 
@@ -117,6 +119,7 @@ export default function AddDepartmentPersonPage() {
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
           department_id: form.department_id,
+          mobile_number: form.mobile_number.trim() || null,
         }),
       });
 
@@ -138,7 +141,7 @@ export default function AddDepartmentPersonPage() {
         emailSent: data.emailSent,
         emailNote: data.emailNote,
       });
-      setForm({ name: "", email: "", department_id: "" });
+      setForm({ name: "", email: "", department_id: "", mobile_number: "" });
     } catch (err) {
       setError(
         err instanceof Error
@@ -339,6 +342,21 @@ export default function AddDepartmentPersonPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Mobile Number
+            </label>
+            <input
+              type="tel"
+              value={form.mobile_number}
+              onChange={set("mobile_number")}
+              placeholder="e.g. 9876543210"
+              maxLength={10}
+              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+            />
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Optional. Must be exactly 10 digits.</p>
           </div>
 
           <div className="flex gap-3 pt-2">

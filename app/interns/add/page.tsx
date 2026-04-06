@@ -1,13 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { GET_DEPARTMENTS, GET_INTERNS, GET_DASHBOARD_STATS } from '@/graphql/queries';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAppDispatch } from '@/lib/hooks';
 import { openAddInternModal, closeAddInternModal } from '@/lib/slices/uiSlice';
 import { demoStore } from '@/lib/demoStore';
-import { DEMO_DEPARTMENTS, DepartmentData } from '@/lib/constants';
+import { DEMO_DEPARTMENTS, DepartmentData, InternData } from '@/lib/constants';
 import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
 import {
   internFormValuesToCreateApiBody,
@@ -27,8 +27,12 @@ export default function AddInternPage() {
   const { user, token } = useAuth();
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [editTarget, setEditTarget] = useState<InternData | null>(null);
 
   // Open modal when component mounts, close when unmounting
   useEffect(() => {
@@ -41,17 +45,44 @@ export default function AddInternPage() {
   const isAdmin      = user?.role === 'admin';
   const isDeptPerson = user?.role === 'department_person';
 
-  // ── Redirect interns ──────────────────────────────────────────────────────
+  // ── All hooks MUST be called unconditionally ───────────────────────────────
+  // (Move all useQuery and useMutation calls before any conditional logic)
+  
+  // Departments via GraphQL
+  const { data: deptData, loading: deptsLoading, error: deptGqlError } = useQuery<{
+    departments: DepartmentData[];
+  }>(GET_DEPARTMENTS, { skip: IS_DEMO });
+
+  // Fetch intern data if editing
+  const { data: internsData, loading: internsLoading } = useQuery(GET_INTERNS, {
+    variables: { where: editId ? { id: { _eq: editId } } : {}, order_by: [{ created_at: 'desc' }] },
+    skip: IS_DEMO || !editId,
+  });
+
+  // Refetch hooks
+  const { refetch: refetchInterns } = useQuery(GET_INTERNS, {
+    variables: { where: {}, order_by: [{ created_at: 'desc' }] },
+    skip: IS_DEMO,
+  });
+  const { refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, { skip: IS_DEMO });
+
+  // Effect to populate edit target (called unconditionally)
+  useEffect(() => {
+    if (editId && !IS_DEMO && internsData?.interns?.length > 0) {
+      setEditTarget(internsData.interns[0]);
+    } else if (editId && IS_DEMO) {
+      const found = demoStore.getInterns({}).find(i => i.id === editId);
+      if (found) setEditTarget(found);
+    }
+  }, [editId, internsData]);
+
+  // ── Now perform authorization check (after hooks) ─────────────────────────
   if (user && !isAdmin && !isDeptPerson) {
     router.replace('/interns');
     return null;
   }
 
-  // ── Departments via GraphQL ───────────────────────────────────────────────
-  const { data: deptData, loading: deptsLoading, error: deptGqlError } = useQuery<{
-    departments: DepartmentData[];
-  }>(GET_DEPARTMENTS, { skip: IS_DEMO });
-
+  // Prepare data
   const allDepartments: DepartmentData[] = IS_DEMO ? DEMO_DEPARTMENTS : (deptData?.departments ?? []);
 
   // department_person only sees their own department
@@ -61,14 +92,7 @@ export default function AddInternPage() {
 
   const deptsError = deptGqlError?.message ?? null;
 
-  // ── Refetch hooks ─────────────────────────────────────────────────────────
-  const { refetch: refetchInterns } = useQuery(GET_INTERNS, {
-    variables: { where: {}, order_by: [{ created_at: 'desc' }] },
-    skip: IS_DEMO,
-  });
-  const { refetch: refetchStats } = useQuery(GET_DASHBOARD_STATS, { skip: IS_DEMO });
-
-  if (!IS_DEMO && deptsLoading) {
+  if ((!IS_DEMO && deptsLoading) || (editId && internsLoading)) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -88,8 +112,41 @@ export default function AddInternPage() {
         userDepartmentId: user?.department_id,
       });
 
+      if (editTarget) {
+        // ── EDIT MODE ──
+        if (IS_DEMO) {
+          demoStore.update(editTarget.id, internFormValuesToDemoPayload(values, department_id));
+        } else {
+          // Use REST API endpoint for update (has full permissions)
+          const res = await fetch('/api/interns/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              id: editTarget.id,
+              ...internFormValuesToCreateApiBody(values, department_id),
+            }),
+          });
+
+          const data = await resJsonSafe<{ message?: string }>(res).catch((e) => {
+            if (res.ok) throw e;
+            return { message: e instanceof Error ? e.message : 'Failed to update intern' };
+          });
+          if (!res.ok) throw new Error((data as { message?: string }).message || 'Failed to update intern');
+        }
+        // Refetch both interns and stats to update dashboard and list
+        await Promise.all([refetchInterns(), refetchStats()]);
+        dispatch(closeAddInternModal());
+        router.push('/interns');
+        return;
+      }
+
+      // ── CREATE MODE ──
       if (IS_DEMO) {
         demoStore.create(internFormValuesToDemoPayload(values, department_id));
+        dispatch(closeAddInternModal());
         router.push('/interns');
         return;
       }
@@ -113,7 +170,7 @@ export default function AddInternPage() {
       dispatch(closeAddInternModal());
       router.push('/interns');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add intern');
+      setError(err instanceof Error ? err.message : 'Failed to save intern');
       setSubmitting(false);
     }
   };
@@ -136,9 +193,13 @@ export default function AddInternPage() {
           </svg>
           Back
         </button>
-        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Add new intern</h2>
+        <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white tracking-tight">
+          {editId ? 'Edit intern' : 'Add new intern'}
+        </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
-          {isDeptPerson
+          {editId
+            ? 'Update intern details below.'
+            : isDeptPerson
             ? `Interns are added under ${departments[0]?.name ?? 'your department'}. Complete each section below.`
             : 'Capture personal, academic, and placement details. Required fields are marked with an asterisk.'}
         </p>
@@ -179,9 +240,11 @@ export default function AddInternPage() {
         isInline={true}
         onClose={handleClose}
         onSubmit={handleSubmit}
-        initialData={null}
+        initialData={editTarget}
         departments={departments}
         submitting={submitting}
+        userRole={user?.role}
+        userDepartmentId={user?.department_id ?? undefined}
       />
     </div>
   );

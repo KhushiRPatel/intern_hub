@@ -19,6 +19,8 @@ interface Props {
   departments: DepartmentData[];
   submitting: boolean;
   isInline?: boolean;
+  userRole?: string;
+  userDepartmentId?: string;
 }
 
 function FormSection({
@@ -66,20 +68,41 @@ export default function InternFormModal({
   departments,
   submitting,
   isInline = false,
+  userRole,
+  userDepartmentId,
 }: Props) {
   const [form, setForm] = useState<InternFormValues>(EMPTY_INTERN_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof InternFormValues, string>>>({});
+  const isDeptPerson = userRole === 'department_person';
+  const deptDepartmentId = isDeptPerson ? userDepartmentId : undefined;
 
   useEffect(() => {
     if (initialData) {
       setForm({
+        // Personal
         name: initialData.name,
         email: initialData.email,
         phone: initialData.phone ?? '',
         alternate_phone: initialData.alternate_phone ?? '',
+        date_of_birth: initialData.date_of_birth ?? '',
+        gender: initialData.gender ?? '',
+        blood_group: initialData.blood_group ?? '',
+        nationality: initialData.nationality ?? 'Indian',
+
+        // Address
+        address_line1: initialData.address_line1 ?? '',
+        address_line2: initialData.address_line2 ?? '',
+        city: initialData.city ?? '',
+        state: initialData.state ?? '',
+        pincode: initialData.pincode ?? '',
+        country: initialData.country ?? 'India',
+
+        // Academic
         college: initialData.college,
         university: initialData.university ?? '',
         college_email: initialData.college_email ?? '',
+        college_city: initialData.college_city ?? '',
+        college_state: initialData.college_state ?? '',
         degree: initialData.degree ?? '',
         branch: initialData.branch ?? '',
         specialization: initialData.specialization ?? '',
@@ -87,23 +110,62 @@ export default function InternFormModal({
           initialData.graduation_year != null && initialData.graduation_year !== undefined
             ? String(initialData.graduation_year)
             : '',
+        current_year:
+          initialData.current_year != null && initialData.current_year !== undefined
+            ? String(initialData.current_year)
+            : '',
+        cgpa: initialData.cgpa != null ? String(initialData.cgpa) : '',
+        percentage: initialData.percentage != null ? String(initialData.percentage) : '',
+        student_id: initialData.student_id ?? '',
+
+        // Internship
         department_id: initialData.department_id,
         start_date: initialData.start_date,
         end_date: initialData.end_date ?? '',
         status: initialData.status,
+        duration_months: initialData.duration_months != null ? String(initialData.duration_months) : '',
+        work_mode: initialData.work_mode ?? 'onsite',
+        stipend: initialData.stipend != null ? String(initialData.stipend) : '',
+        offer_letter_date: initialData.offer_letter_date ?? '',
+        joining_letter_date: initialData.joining_letter_date ?? '',
+
+        // Skills
+        skills: initialData.skills?.join(', ') ?? '',
+        languages_known: initialData.languages_known?.join(', ') ?? '',
+        tools: initialData.tools?.join(', ') ?? '',
+
+        // Social
+        linkedin_url: initialData.linkedin_url ?? '',
+        github_url: initialData.github_url ?? '',
+        portfolio_url: initialData.portfolio_url ?? '',
+
+        // Identity
+        aadhar_number: initialData.aadhar_number ?? '',
+        pan_number: initialData.pan_number ?? '',
+
+        // Reference
+        reference_name: initialData.reference_name ?? '',
+        reference_contact: initialData.reference_contact ?? '',
+
+        // Notes
+        notes: initialData.notes ?? '',
       });
     } else {
-      setForm(EMPTY_INTERN_FORM);
+      // New form: set department for department_person users
+      setForm(isDeptPerson && deptDepartmentId  
+        ? { ...EMPTY_INTERN_FORM, department_id: deptDepartmentId }
+        : EMPTY_INTERN_FORM
+      );
     }
     setErrors({});
-  }, [initialData, isOpen]);
+  }, [initialData, isOpen, isDeptPerson, deptDepartmentId]);
 
   const set = (field: keyof InternFormValues) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((p) => ({ ...p, [field]: e.target.value }));
 
   /** Allow only digits, spaces, +, -, ( ) for phone fields */
-  const setPhone = (field: 'phone' | 'alternate_phone') =>
+  const setPhone = (field: 'phone' | 'alternate_phone' | 'reference_contact') =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const cleaned = e.target.value.replace(/[^\d\s\+\-\(\)]/g, '');
       setForm((p) => ({ ...p, [field]: cleaned }));
@@ -127,16 +189,31 @@ export default function InternFormModal({
 
     if (form.phone.trim()) {
       const digits = form.phone.replace(/\D/g, '');
-      if (digits.length < 7 || digits.length > 15) {
-        e.phone = 'Phone must be 7–15 digits';
+      if (digits.length !== 10) {
+        e.phone = 'Phone must be exactly 10 digits';
       }
+    } else {
+      e.phone = 'Phone is required';
     }
 
     if (form.alternate_phone.trim()) {
       const digits = form.alternate_phone.replace(/\D/g, '');
-      if (digits.length < 7 || digits.length > 15) {
-        e.alternate_phone = 'Alternate phone must be 7–15 digits';
+      if (digits.length !== 10) {
+        e.alternate_phone = 'Alternate phone must be exactly 10 digits';
       }
+    }
+
+    if (form.date_of_birth.trim()) {
+      const dob = new Date(form.date_of_birth);
+      const now = new Date();
+      if (dob > now) {
+        e.date_of_birth = 'Date of birth cannot be in the future';
+      }
+    }
+
+    // ── Address ───────────────────────────────────────────────
+    if (form.pincode.trim() && !/^\d{5,6}$/.test(form.pincode.trim())) {
+      e.pincode = 'Pincode must be 5-6 digits';
     }
 
     // ── Academic ──────────────────────────────────────────────
@@ -155,11 +232,29 @@ export default function InternFormModal({
         e.graduation_year = 'Enter a valid year between 1990 and 2040';
       }
     }
+    if (form.current_year.trim()) {
+      const y = Number(form.current_year);
+      if (!Number.isInteger(y) || y < 1 || y > 4) {
+        e.current_year = 'Enter a year between 1 and 4';
+      }
+    }
+    if (form.cgpa.trim()) {
+      const cgpa = Number(form.cgpa);
+      if (isNaN(cgpa) || cgpa < 0 || cgpa > 10) {
+        e.cgpa = 'CGPA must be between 0 and 10';
+      }
+    }
+    if (form.percentage.trim()) {
+      const perc = Number(form.percentage);
+      if (isNaN(perc) || perc < 0 || perc > 100) {
+        e.percentage = 'Percentage must be between 0 and 100';
+      }
+    }
     if (form.college_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.college_email.trim())) {
       e.college_email = 'Enter a valid college email address';
     }
 
-    // ── Placement ─────────────────────────────────────────────
+    // ── Internship ─────────────────────────────────────────────
     if (!form.department_id) {
       e.department_id = 'Department is required';
     }
@@ -168,6 +263,39 @@ export default function InternFormModal({
     }
     if (form.end_date && form.start_date && form.end_date < form.start_date) {
       e.end_date = 'End date cannot be before start date';
+    }
+    if (form.stipend.trim()) {
+      const stipend = Number(form.stipend);
+      if (isNaN(stipend) || stipend < 0) {
+        e.stipend = 'Stipend must be a positive number';
+      }
+    }
+
+    // ── URLs ───────────────────────────────────────────────────
+    if (form.linkedin_url.trim() && !form.linkedin_url.trim().startsWith('http')) {
+      e.linkedin_url = 'URL must start with http:// or https://';
+    }
+    if (form.github_url.trim() && !form.github_url.trim().startsWith('http')) {
+      e.github_url = 'URL must start with http:// or https://';
+    }
+    if (form.portfolio_url.trim() && !form.portfolio_url.trim().startsWith('http')) {
+      e.portfolio_url = 'URL must start with http:// or https://';
+    }
+
+    // ── Identity ───────────────────────────────────────────────
+    if (form.aadhar_number.trim() && !/^\d{12}$/.test(form.aadhar_number.trim())) {
+      e.aadhar_number = 'Aadhar must be 12 digits';
+    }
+    if (form.pan_number.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(form.pan_number.trim())) {
+      e.pan_number = 'Invalid PAN format';
+    }
+
+    // ── Reference ─────────────────────────────────────────────
+    if (form.reference_contact.trim()) {
+      const digits = form.reference_contact.replace(/\D/g, '');
+      if (digits.length !== 10) {
+        e.reference_contact = 'Mobile number must be exactly 10 digits';
+      }
     }
 
     setErrors(e);
@@ -230,25 +358,136 @@ export default function InternFormModal({
             required
             value={form.phone}
             onChange={setPhone('phone')}
-            placeholder="+91 98765 43210"
+            placeholder="e.g. 9876543210"
             error={errors.phone}
-            hint="Digits only · 7–15 characters"
+            hint="10-digit mobile number"
+            maxLength={10}
           />
           <Input
             label="Alternate phone"
             type="tel"
             value={form.alternate_phone}
             onChange={setPhone('alternate_phone')}
-            placeholder="Optional second number"
+            placeholder="Optional 10-digit number"
             error={errors.alternate_phone}
+            hint="10-digit mobile number"
+            maxLength={10}
+            wrapperClassName="sm:col-span-2 xl:col-span-1"
+          />
+          <Input
+            label="Date of birth"
+            type="date"
+            value={form.date_of_birth}
+            onChange={set('date_of_birth')}
+            error={errors.date_of_birth}
+          />
+          <Select
+            label="Gender"
+            value={form.gender}
+            onChange={set('gender')}
+          >
+            <option value="">Not specified</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </Select>
+          <Select
+            label="Blood group"
+            value={form.blood_group}
+            onChange={set('blood_group')}
+          >
+            <option value="">Not specified</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+          </Select>
+          <Input
+            label="Nationality"
+            type="text"
+            value={form.nationality}
+            onChange={set('nationality')}
+            placeholder="Indian"
             wrapperClassName="sm:col-span-2 xl:col-span-1"
           />
         </div>
       </FormSection>
 
       <FormSection
+        title="Address"
+        description="Current residential address"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+        }
+      >
+        <div className={sectionClass}>
+          <Input
+            label="Address line 1"
+            type="text"
+            value={form.address_line1}
+            onChange={set('address_line1')}
+            placeholder="Street address"
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+          />
+          <Input
+            label="Address line 2"
+            type="text"
+            value={form.address_line2}
+            onChange={set('address_line2')}
+            placeholder="Apt, suite, etc."
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+          />
+          <Input
+            label="City"
+            type="text"
+            value={form.city}
+            onChange={set('city')}
+            placeholder="e.g. Delhi"
+          />
+          <Input
+            label="State"
+            type="text"
+            value={form.state}
+            onChange={set('state')}
+            placeholder="e.g. Delhi"
+          />
+          <Input
+            label="Pincode"
+            type="text"
+            value={form.pincode}
+            onChange={set('pincode')}
+            placeholder="6 digits"
+            error={errors.pincode}
+          />
+          <Input
+            label="Country"
+            type="text"
+            value={form.country}
+            onChange={set('country')}
+            placeholder="India"
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
         title="Academic background"
-        description="Institution, programme, and field of study."
+        description="Institution, programme, and field of study"
         icon={
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path
@@ -278,6 +517,20 @@ export default function InternFormModal({
             placeholder="Affiliating university (optional)"
           />
           <Input
+            label="College city"
+            type="text"
+            value={form.college_city}
+            onChange={set('college_city')}
+            placeholder="College location"
+          />
+          <Input
+            label="College state"
+            type="text"
+            value={form.college_state}
+            onChange={set('college_state')}
+            placeholder="College state"
+          />
+          <Input
             label="Degree"
             required
             type="text"
@@ -303,6 +556,45 @@ export default function InternFormModal({
             placeholder="e.g. Machine learning (optional)"
           />
           <Input
+            label="Student ID"
+            type="text"
+            value={form.student_id}
+            onChange={set('student_id')}
+            placeholder="College student ID"
+          />
+          <Input
+            label="Current year"
+            type="number"
+            min={1}
+            max={4}
+            value={form.current_year}
+            onChange={set('current_year')}
+            placeholder="1-4"
+            error={errors.current_year}
+          />
+          <Input
+            label="CGPA"
+            type="number"
+            min={0}
+            max={10}
+            step={0.01}
+            value={form.cgpa}
+            onChange={set('cgpa')}
+            placeholder="0.00-10.00"
+            error={errors.cgpa}
+          />
+          <Input
+            label="Percentage"
+            type="number"
+            min={0}
+            max={100}
+            step={0.01}
+            value={form.percentage}
+            onChange={set('percentage')}
+            placeholder="0-100"
+            error={errors.percentage}
+          />
+          <Input
             label="Graduation year"
             type="number"
             min={1990}
@@ -325,8 +617,8 @@ export default function InternFormModal({
       </FormSection>
 
       <FormSection
-        title="Internship placement"
-        description="Department, programme dates, and current status."
+        title="Internship details"
+        description="Placement, duration, and compensation"
         icon={
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path
@@ -343,8 +635,10 @@ export default function InternFormModal({
             required
             value={form.department_id}
             onChange={set('department_id')}
+            disabled={isDeptPerson}
             error={errors.department_id}
             wrapperClassName="xl:col-span-2"
+            title={isDeptPerson ? 'Your department is locked for department_person users' : undefined}
           >
             <option value="">Select department</option>
             {(departments ?? []).map((d) => (
@@ -376,6 +670,226 @@ export default function InternFormModal({
             min={form.start_date}
             hint="Optional — expected completion"
             error={errors.end_date}
+          />
+          <Input
+            label="Duration (months)"
+            type="number"
+            min={0}
+            value={form.duration_months}
+            onChange={set('duration_months')}
+            placeholder="e.g. 6"
+          />
+          <Select
+            label="Work mode"
+            value={form.work_mode}
+            onChange={set('work_mode')}
+          >
+            <option value="onsite">Onsite</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+          </Select>
+          <Input
+            label="Monthly stipend"
+            type="number"
+            min={0}
+            step={100}
+            value={form.stipend}
+            onChange={set('stipend')}
+            placeholder="₹0"
+            error={errors.stipend}
+          />
+          <Input
+            label="Offer letter date"
+            type="date"
+            value={form.offer_letter_date}
+            onChange={set('offer_letter_date')}
+          />
+          <Input
+            label="Joining letter date"
+            type="date"
+            value={form.joining_letter_date}
+            onChange={set('joining_letter_date')}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Skills & expertise"
+        description="Programming languages, tools, and proficiencies"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        }
+      >
+        <div className={sectionClass}>
+          <Input
+            label="Technical skills"
+            type="text"
+            value={form.skills}
+            onChange={set('skills')}
+            placeholder="Python, JavaScript, React… (comma-separated)"
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+            hint="Comma-separated list"
+          />
+          <Input
+            label="Languages known"
+            type="text"
+            value={form.languages_known}
+            onChange={set('languages_known')}
+            placeholder="English, Hindi, Spanish… (comma-separated)"
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+            hint="Comma-separated list"
+          />
+          <Input
+            label="Tools & software"
+            type="text"
+            value={form.tools}
+            onChange={set('tools')}
+            placeholder="Git, Docker, AWS… (comma-separated)"
+            wrapperClassName="sm:col-span-2 xl:col-span-3"
+            hint="Comma-separated list"
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Professional profiles"
+        description="Online portfolios and social links"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4.242 4.242a4 4 0 105.656 5.656l4.242-4.242a4 4 0 00-5.656-5.656l4.242 4.242"
+            />
+          </svg>
+        }
+      >
+        <div className={sectionClass}>
+          <Input
+            label="LinkedIn URL"
+            type="url"
+            value={form.linkedin_url}
+            onChange={set('linkedin_url')}
+            placeholder="https://linkedin.com/in/…"
+            error={errors.linkedin_url}
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+          />
+          <Input
+            label="GitHub URL"
+            type="url"
+            value={form.github_url}
+            onChange={set('github_url')}
+            placeholder="https://github.com/…"
+            error={errors.github_url}
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+          />
+          <Input
+            label="Portfolio URL"
+            type="url"
+            value={form.portfolio_url}
+            onChange={set('portfolio_url')}
+            placeholder="https://yourportfolio.com"
+            error={errors.portfolio_url}
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Identity documents"
+        description="Government/legal identity information"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10 6H5a2 2 0 00-2 2v10a2 2 0 002 2h5m4 0h5a2 2 0 002-2V8a2 2 0 00-2-2h-5m0 0V5a2 2 0 00-2-2h0a2 2 0 00-2 2v1m4 0a2 2 0 10-4 0m0 0V8m0 0a2 2 0 002 2h4a2 2 0 002-2m-6 0a2 2 0 01-2-2m6 0a2 2 0 00-2-2"
+            />
+          </svg>
+        }
+      >
+        <div className={sectionClass}>
+          <Input
+            label="Aadhar number"
+            type="text"
+            value={form.aadhar_number}
+            onChange={set('aadhar_number')}
+            placeholder="12 digits"
+            error={errors.aadhar_number}
+          />
+          <Input
+            label="PAN number"
+            type="text"
+            value={form.pan_number}
+            onChange={set('pan_number')}
+            placeholder="ABCDE1234F"
+            error={errors.pan_number}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Emergency contact"
+        description="Reference person for emergencies"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+            />
+          </svg>
+        }
+      >
+        <div className={sectionClass}>
+          <Input
+            label="Reference name"
+            type="text"
+            value={form.reference_name}
+            onChange={set('reference_name')}
+            placeholder="Full name"
+            wrapperClassName="sm:col-span-2 xl:col-span-1"
+          />
+          <Input
+            label="Reference contact"
+            type="tel"
+            value={form.reference_contact}
+            onChange={setPhone('reference_contact')}
+            placeholder="Mobile number (10 digits)"
+            error={errors.reference_contact}
+            wrapperClassName="sm:col-span-2 xl:col-span-2"
+            hint="10-digit mobile number"
+            maxLength={10}
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Additional notes"
+        description="Any other relevant information"
+        icon={
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        }
+      >
+        <div className="space-y-5">
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+            placeholder="Any additional notes or remarks..."
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+            rows={4}
           />
         </div>
       </FormSection>
@@ -414,3 +928,4 @@ export default function InternFormModal({
     </Modal>
   );
 }
+
