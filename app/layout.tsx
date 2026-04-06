@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import ReduxProvider from './providers/ReduxProvider';
-import ThemeInitializer from './providers/ThemeInitializer';
 import ApolloClientProvider from './providers/ApolloProvider';
+import ReduxProvider from './providers/ReduxProvider';
 import { AuthProvider } from './context/AuthContext';
-import { TaskProvider } from './context/TaskContext';
-import NotificationCenter from './components/NotificationCenter';
+import { TaskProvider } from './context/TaskContext';   // ← your branch
+import { ThemeProvider } from './context/ThemeContext'; // ← Harshil's branch
 
 const inter = Inter({
   subsets: ['latin'],
@@ -17,10 +16,6 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'InternMS — Intern Management System',
   description: 'Manage interns across departments efficiently',
-  icons: {
-    icon: '/icon.svg',
-    shortcut: '/icon.svg',
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -28,15 +23,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} antialiased`}>
         <ReduxProvider>
-          <ThemeInitializer />
-          <ApolloClientProvider>
-            <AuthProvider>
-              <TaskProvider>
-                {children}
-                <NotificationCenter />
-              </TaskProvider>
-            </AuthProvider>
-          </ApolloClientProvider>
+          <ThemeProvider>
+            <ApolloClientProvider>
+              <AuthProvider>
+                <TaskProvider>
+                  {children}
+                </TaskProvider>
+              </AuthProvider>
+            </ApolloClientProvider>
+          </ThemeProvider>
         </ReduxProvider>
       </body>
     </html>

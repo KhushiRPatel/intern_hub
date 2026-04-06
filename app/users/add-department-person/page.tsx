@@ -1,14 +1,20 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@apollo/client/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { DEMO_DEPARTMENTS, DepartmentData } from "@/lib/constants";
 import { GET_DEPARTMENTS } from "@/graphql/queries";
+import { Toast, ToastType } from "@/app/components/ui/Toast";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
 
 type FormValues = { name: string; email: string; department_id: string };
+
+interface ToastState {
+  message: string;
+  type: ToastType;
+}
 
 async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
   const text = await res.text();
@@ -20,7 +26,7 @@ async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
 }
 
 export default function AddDepartmentPersonPage() {
-  const { user, token, isLoading } = useAuth(); // ← token added
+  const { user, token, isLoading } = useAuth();
   const router = useRouter();
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
@@ -56,22 +62,10 @@ export default function AddDepartmentPersonPage() {
     department_id: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState<{
-    email: string;
-    tempPassword?: string;
-    resetLink?: string;
-    emailSent?: boolean;
-    emailNote?: string;
-  } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
-  const copyLink = useCallback((link: string) => {
-    navigator.clipboard.writeText(link).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, []);
+  const showToast = (message: string, type: ToastType) =>
+    setToast({ message, type });
 
   const set =
     (field: keyof FormValues) =>
@@ -88,25 +82,20 @@ export default function AddDepartmentPersonPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     const vErr = validate();
     if (vErr) {
-      setError(vErr);
+      showToast(vErr, "error");
       return;
     }
 
     setSubmitting(true);
     try {
       if (IS_DEMO) {
-        // Demo mode: no persistence, just show placeholder credentials
-        setSuccess({
-          email: form.email.trim().toLowerCase(),
-          tempPassword: "DEMO_TEMP_PASSWORD",
-        });
+        setForm({ name: "", email: "", department_id: "" });
+        showToast("Department person created successfully!", "success");
         return;
       }
 
-      // ✅ FIX: Authorization header so the API auth guard passes
       const res = await fetch("/api/users/create-department-person", {
         method: "POST",
         headers: {
@@ -131,19 +120,17 @@ export default function AddDepartmentPersonPage() {
       if (!res.ok)
         throw new Error(data.message || "Failed to create department person");
 
-      setSuccess({
-        email: form.email.trim().toLowerCase(),
-        tempPassword: data.credentials?.tempPassword,
-        resetLink: data.resetLink,
-        emailSent: data.emailSent,
-        emailNote: data.emailNote,
-      });
       setForm({ name: "", email: "", department_id: "" });
+      showToast(
+        data.emailSent
+          ? "Department person created! Password setup email sent."
+          : "Department person created! Password setup link sent to console.",
+        "success",
+      );
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to create department person",
+      showToast(
+        err instanceof Error ? err.message : "Failed to create department person",
+        "error",
       );
     } finally {
       setSubmitting(false);
@@ -161,6 +148,15 @@ export default function AddDepartmentPersonPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* ── Toast ── */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* ── Header ── */}
       <div className="mb-6">
         <button
@@ -193,11 +189,6 @@ export default function AddDepartmentPersonPage() {
       </div>
 
       {/* ── Alerts ── */}
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          {error}
-        </div>
-      )}
       {deptsError && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-sm">
           {deptsError}
@@ -209,163 +200,79 @@ export default function AddDepartmentPersonPage() {
         </div>
       )}
 
-      {/* ── Success card ── */}
-      {success && (
-        <div className="mb-6 rounded-xl border text-sm overflow-hidden shadow-sm">
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-green-600 text-white">
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="font-semibold">Department person created successfully!</p>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 border border-green-200 dark:border-green-800 rounded-b-xl px-4 py-4 space-y-3">
-            {/* Account info */}
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-slate-400 w-16 shrink-0">Email</span>
-              <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{success.email}</span>
-            </div>
-
-            {/* Email sent status */}
-            <div className="flex items-start gap-2">
-              <span className="text-slate-500 dark:text-slate-400 w-16 shrink-0 pt-0.5">Email</span>
-              {success.emailSent ? (
-                <span className="inline-flex items-center gap-1.5 bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 px-2.5 py-1 rounded-lg text-xs font-medium">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Password setup email sent ✓
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700 px-2.5 py-1 rounded-lg text-xs font-medium">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                  {success.emailNote ?? "SMTP not configured — share the link below"}
-                </span>
-              )}
-            </div>
-
-            {/* Reset link (always shown so admin can share manually) */}
-            {success.resetLink && (
-              <div className="mt-1 space-y-1.5">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                  Password Setup Link
-                  {success.emailSent && (
-                    <span className="ml-2 normal-case font-normal text-green-600 dark:text-green-400">(also emailed)</span>
-                  )}
-                </p>
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
-                  <p className="font-mono text-xs break-all flex-1 text-slate-700 dark:text-slate-300 select-all">
-                    {success.resetLink}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => copyLink(success.resetLink!)}
-                    title="Copy link"
-                    className="shrink-0 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                  >
-                    {copied ? (
-                      <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500">⏳ Link expires in 24 hours</p>
-              </div>
-            )}
-
-            <button
-              onClick={() => { setSuccess(null); setCopied(false); }}
-              className="mt-1 text-xs text-primary-600 dark:text-primary-400 underline hover:text-primary-800 font-medium"
-            >
-              + Add another department person
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Form ── */}
-      {!success && (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm px-6 py-5 space-y-4"
-        >
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Full Name<span className="ml-0.5 text-red-500 select-none"> *</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={set("name")}
-              placeholder="e.g. Sarah Sharma"
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
-            />
-          </div>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm px-6 py-5 space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Full Name *
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={set("name")}
+            placeholder="e.g. Sarah Sharma"
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Email<span className="ml-0.5 text-red-500 select-none"> *</span>
-            </label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={set("email")}
-              placeholder="sarah@example.com"
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Email *
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            placeholder="sarah@example.com"
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Department<span className="ml-0.5 text-red-500 select-none"> *</span>
-            </label>
-            <select
-              value={form.department_id}
-              onChange={set("department_id")}
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
-            >
-              <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Department *
+          </label>
+          <select
+            value={form.department_id}
+            onChange={set("department_id")}
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          >
+            <option value="">Select department</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => router.push("/dashboard")}
-              className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || showNoDepts}
-              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Creating…
-                </>
-              ) : (
-                "Create Department Person"
-              )}
-            </button>
-          </div>
-        </form>
-      )}
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || showNoDepts}
+            className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Creating…
+              </>
+            ) : (
+              "Create Department Person"
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
