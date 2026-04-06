@@ -12,8 +12,10 @@ import { DELETE_DEPARTMENT_PERSON, UPDATE_DEPARTMENT_PERSON } from '@/graphql/mu
 import { Button } from '@/app/components/ui/Button';
 import { Input, Select } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
+import { Pagination } from '@/app/components/ui/Pagination';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const ITEMS_PER_PAGE = 10;
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 interface DeptPerson {
@@ -210,6 +212,7 @@ export default function DepartmentPersonsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // ── Demo state ──
   const [demoPersons, setDemoPersons] = useState<DeptPerson[]>(DEMO_PERSONS);
@@ -230,6 +233,7 @@ export default function DepartmentPersonsPage() {
   const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery<{ users: DeptPerson[] }>(GET_DEPARTMENT_PERSONS, {
     variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
     skip: IS_DEMO || isLoading,
+    fetchPolicy: 'network-only',
   });
 
   const [updateMutation] = useMutation(UPDATE_DEPARTMENT_PERSON, { onCompleted: () => refetch() });
@@ -249,6 +253,20 @@ export default function DepartmentPersonsPage() {
   const loading = !IS_DEMO && gqlLoading;
   const errorMsg = gqlError?.message ?? null;
   const hasFilter = deptPersonFilters.search || deptPersonFilters.department;
+  const totalPages = Math.max(1, Math.ceil(persons.length / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deptPersonFilters.search, deptPersonFilters.department]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  const paginatedPersons = useMemo(
+    () => persons.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [persons, currentPage],
+  );
 
   // ── Handlers ──
   const handleEdit = (person: DeptPerson) => setEditTarget(person);
@@ -401,7 +419,7 @@ export default function DepartmentPersonsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {persons.map(p => (
+                {paginatedPersons.map(p => (
                   <PersonRow
                     key={p.id}
                     person={p}
@@ -414,6 +432,12 @@ export default function DepartmentPersonsPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={persons.length}
+          pageSize={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ── Modals ── */}
