@@ -105,7 +105,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
 
           {/* Title */}
           <div className="md:col-span-2">
-            <label className={labelCls}>Title <span className="text-red-400">*</span></label>
+            <label className={labelCls}>Title <span className="text-red-500">*</span></label>
             <input
               type="text"
               name="title"
@@ -133,7 +133,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
           {/* Assign Interns */}
           <div className="md:col-span-2">
             <label className={labelCls}>
-              Assign to Interns <span className="text-red-400">*</span>
+              Assign to Interns <span className="text-red-500">*</span>
               {formData.intern_ids && formData.intern_ids.length > 0 && (
                 <span className="ml-2 normal-case font-medium text-primary-600 dark:text-primary-400">
                   {formData.intern_ids.length} selected

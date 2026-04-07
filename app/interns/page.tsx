@@ -247,6 +247,17 @@ export default function InternsPage() {
 
   const showDept = user?.role === 'admin';
 
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (!isAdmin && !isDeptPerson) {
+      router.replace('/dashboard');
+    }
+  }, [isLoading, user, router, isAdmin, isDeptPerson]);
+
   return (
     <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
 

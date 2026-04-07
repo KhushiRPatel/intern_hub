@@ -112,44 +112,55 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Stats ── */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-slate-700 dark:text-slate-300 font-semibold text-sm">Overview</h3>
-          <Link href="/interns" className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 font-medium transition-colors">
-            View all →
-          </Link>
-        </div>
+      {!isIntern && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-slate-700 dark:text-slate-300 font-semibold text-sm">Overview</h3>
+            <Link href="/interns" className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 font-medium transition-colors">
+              View all →
+            </Link>
+          </div>
 
-        {!IS_DEMO && statsLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner size="lg" label="Loading stats…" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
-            <StatCard label="Total Interns" value={stats.total}
-              iconBg="bg-slate-100 dark:bg-slate-800"
-              icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
-            />
-            <StatCard label="Active" value={stats.active}
-              iconBg="bg-primary-100 dark:bg-primary-900/30"
-              icon={<svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            />
-            <StatCard label="Completed" value={stats.completed}
-              iconBg="bg-blue-100 dark:bg-blue-900/30"
-              icon={<svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-            />
-            <StatCard label="Terminated" value={stats.terminated}
-              iconBg="bg-red-100 dark:bg-red-900/30"
-              icon={<svg className="w-5 h-5 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
-            />
-          </div>
-        )}
-      </div>
+          {!IS_DEMO && statsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner size="lg" label="Loading stats…" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
+              <StatCard label="Total Interns" value={stats.total}
+                iconBg="bg-slate-100 dark:bg-slate-800"
+                icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+              />
+              <StatCard label="Active" value={stats.active}
+                iconBg="bg-primary-100 dark:bg-primary-900/30"
+                icon={<svg className="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              />
+              <StatCard label="Completed" value={stats.completed}
+                iconBg="bg-blue-100 dark:bg-blue-900/30"
+                icon={<svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+              />
+              <StatCard label="Terminated" value={stats.terminated}
+                iconBg="bg-red-100 dark:bg-red-900/30"
+                icon={<svg className="w-5 h-5 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Quick access ── */}
       <div>
         <h3 className="text-slate-700 dark:text-slate-300 font-semibold text-sm mb-4">Quick Access</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {isIntern && (
+            <QuickAction
+              href="/profile"
+              title="Update Profile"
+              desc="View and edit your profile details"
+              iconBg="bg-green-50 dark:bg-green-900/20 group-hover:bg-green-600"
+              icon={<svg className="w-5 h-5 text-green-600 dark:text-green-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+            />
+          )}
           {!isIntern && (
             <QuickAction
               href="/interns"
@@ -159,14 +170,7 @@ export default function DashboardPage() {
               icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
             />
           )}
-          {/* ← YOUR BRANCH: Tasks quick action card, visible to all roles */}
-          <QuickAction
-            href="/dashboard/tasks"
-            title="View Tasks"
-            desc="Track and manage assigned tasks"
-            iconBg="bg-green-50 dark:bg-green-900/20 group-hover:bg-green-600"
-            icon={<svg className="w-5 h-5 text-green-600 dark:text-green-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>}
-          />
+          {/* Tasks quick action card removed while the feature is commented out */}
           {isAdmin && (
             <>
               <QuickAction
@@ -175,6 +179,13 @@ export default function DashboardPage() {
                 desc="Register a new intern with auto-account creation"
                 iconBg="bg-primary-50 dark:bg-primary-900/20 group-hover:bg-primary-600"
                 icon={<svg className="w-5 h-5 text-primary-600 dark:text-primary-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>}
+              />
+              <QuickAction
+                href="/users/departments"
+                title="Manage Departments"
+                desc="Add, edit and organize departments"
+                iconBg="bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-700"
+                icon={<svg className="w-5 h-5 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>}
               />
               <QuickAction
                 href="/users/add-department-person"

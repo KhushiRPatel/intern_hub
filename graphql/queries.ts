@@ -317,28 +317,27 @@ export const GET_INTERN_PROFILE = gql`
   query GetInternProfile($id: uuid!) {
     interns_by_pk(id: $id) {
       id
+      user_id
+      created_at
       name
       email
-      status
-      start_date
-      end_date
-      department_id
-      college
-      university
       phone
       alternate_phone
       date_of_birth
       gender
       blood_group
       nationality
-      aadhar_number
-      pan_number
       address_line1
       address_line2
       city
       state
       pincode
       country
+      college
+      university
+      college_email
+      college_city
+      college_state
       degree
       branch
       specialization
@@ -347,9 +346,26 @@ export const GET_INTERN_PROFILE = gql`
       cgpa
       percentage
       student_id
+      status
+      start_date
+      end_date
+      department_id
+      aadhar_number
+      pan_number
+      duration_months
+      work_mode
+      stipend
+      offer_letter_date
+      joining_letter_date
+      skills
+      languages_known
       linkedin_url
       github_url
       portfolio_url
+      tools
+      reference_name
+      reference_contact
+      notes
     }
   }
 `;

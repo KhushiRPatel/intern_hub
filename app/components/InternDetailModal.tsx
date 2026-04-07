@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
@@ -20,8 +20,18 @@ function fmt(d?: string | null) {
   } catch { return d; }
 }
 
+function fmtMoney(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value));
+}
+
+function joinValues(values?: Array<string | null | undefined> | null) {
+  const items = (values ?? []).map(item => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+  return items.length ? items.join(', ') : '—';
+}
+
 /* ── sub-components ───────────────────────────────────────────────────────── */
-function InfoPill({ label, value }: { label: string; value?: string | number | null }) {
+function InfoPill({ label, value }: { label: string; value?: ReactNode }) {
   const empty = value === null || value === undefined || value === '';
   return (
     <div className="flex flex-col gap-0.5 min-w-0">
@@ -31,9 +41,9 @@ function InfoPill({ label, value }: { label: string; value?: string | number | n
       {empty ? (
         <span className="text-sm text-slate-300 dark:text-slate-600 font-normal italic">—</span>
       ) : (
-        <span className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
-          {String(value)}
-        </span>
+        <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+          {value}
+        </div>
       )}
     </div>
   );
@@ -44,6 +54,21 @@ function SectionHead({ title }: { title: string }) {
     <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">
       {title}
     </h4>
+  );
+}
+
+function UrlValue({ value }: { value?: string | null }) {
+  if (!value) return <span className="text-sm text-slate-300 dark:text-slate-600 font-normal italic">—</span>;
+  const href = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline break-all"
+    >
+      {value}
+    </a>
   );
 }
 
@@ -124,6 +149,7 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
   const { token } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'details' | 'tasks'>('details');
+  const [detailTab, setDetailTab] = useState<'personal' | 'academic' | 'internship' | 'skills' | 'links' | 'reference' | 'notes'>('personal');
 
   /* ── extended profile (Hasura GraphQL via admin secret — profile only) ── */
   const { data: profileData, loading: profileLoading } = useQuery<{ interns_by_pk: Record<string, any> }>(
@@ -174,6 +200,7 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
   // Reset state when the viewed intern changes
   useEffect(() => {
     setActiveTab('details');
+    setDetailTab('personal');
     setTasks([]);
     setTasksFetched(false);
   }, [intern?.id]);
@@ -189,11 +216,11 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
 
   const tabs = [
     { id: 'details' as const, label: 'Details' },
-    { id: 'tasks'   as const, label: tasksFetched ? `Tasks (${tasks.length})` : 'Tasks' },
+    // { id: 'tasks'   as const, label: tasksFetched ? `Tasks (${tasks.length})` : 'Tasks' },
   ];
 
   return (
-    <Modal open={isOpen} onClose={onClose} size="xl" hideHeader>
+    <Modal open={isOpen} onClose={onClose} size="2xl" hideHeader>
       {!intern ? null : (
         <div className="flex flex-col max-h-[88vh]">
 
@@ -262,7 +289,7 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
                 className={[
                   'py-3 px-1 mr-6 text-sm font-semibold border-b-2 transition-colors',
                   activeTab === tab.id
-                    ? 'border-[#16a34a] text-[#16a34a] dark:text-green-400'
+                    ? 'border-primary-600 text-primary-600 dark:text-green-400'
                     : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
                 ].join(' ')}
               >
@@ -281,25 +308,47 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
                   <div className="flex justify-center py-8"><Spinner size="lg" label="Loading details…" /></div>
                 ) : (
                   <>
-                    {/* Personal */}
-                    <div>
-                      <SectionHead title="Personal Information" />
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
-                        <InfoPill label="Phone"           value={p?.phone ?? intern.phone} />
-                        <InfoPill label="Alternate Phone" value={p?.alternate_phone ?? intern.alternate_phone} />
-                        <InfoPill label="Email"           value={intern.email} />
-                        <InfoPill label="Date of Birth"   value={fmt(p?.date_of_birth)} />
-                        <InfoPill label="Gender"          value={p?.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : undefined} />
-                        <InfoPill label="Blood Group"     value={p?.blood_group} />
-                        <InfoPill label="Nationality"     value={p?.nationality} />
-                        <InfoPill label="Aadhar Number"   value={p?.aadhar_number} />
-                        <InfoPill label="PAN Number"      value={p?.pan_number ? String(p.pan_number).toUpperCase() : undefined} />
-                      </div>
+                    <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                      {[
+                        { id: 'personal' as const, label: 'Personal' },
+                        { id: 'academic' as const, label: 'Academic' },
+                        { id: 'internship' as const, label: 'Internship' },
+                        { id: 'skills' as const, label: 'Skills' },
+                        { id: 'links' as const, label: 'Links' },
+                        { id: 'reference' as const, label: 'Reference' },
+                        { id: 'notes' as const, label: 'Notes' },
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setDetailTab(tab.id)}
+                          className={[
+                            'px-3 py-1.5 rounded-full text-sm font-semibold transition-colors',
+                            detailTab === tab.id
+                              ? 'bg-primary-600 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700',
+                          ].join(' ')}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Address — only when data exists */}
-                    {(p?.address_line1 || p?.city) && (
+                    {detailTab === 'personal' && (
                       <div>
+                        <SectionHead title="Personal Information" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="Phone"           value={p?.phone ?? intern.phone} />
+                          <InfoPill label="Alternate Phone" value={p?.alternate_phone ?? intern.alternate_phone} />
+                          <InfoPill label="Email"           value={intern.email} />
+                          <InfoPill label="Date of Birth"   value={fmt(p?.date_of_birth)} />
+                          <InfoPill label="Gender"          value={p?.gender ? String(p.gender).charAt(0).toUpperCase() + String(p.gender).slice(1) : undefined} />
+                          <InfoPill label="Blood Group"     value={p?.blood_group} />
+                          <InfoPill label="Nationality"     value={p?.nationality} />
+                          <InfoPill label="Aadhar Number"   value={p?.aadhar_number} />
+                          <InfoPill label="PAN Number"      value={p?.pan_number ? String(p.pan_number).toUpperCase() : undefined} />
+                        </div>
+
                         <SectionHead title="Address" />
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
                           <InfoPill label="Address Line 1" value={p?.address_line1} />
@@ -312,49 +361,81 @@ export default function InternDetailModal({ intern, departments, onClose, onEdit
                       </div>
                     )}
 
-                    {/* Academic */}
-                    <div>
-                      <SectionHead title="Academic Details" />
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
-                        <InfoPill label="College"         value={intern.college} />
-                        <InfoPill label="University"      value={intern.university ?? p?.university} />
-                        <InfoPill label="Degree"          value={intern.degree} />
-                        <InfoPill label="Branch"          value={intern.branch} />
-                        <InfoPill label="Specialization"  value={intern.specialization ?? p?.specialization} />
-                        <InfoPill label="Graduation Year" value={intern.graduation_year ?? p?.graduation_year} />
-                        <InfoPill label="Current Year"    value={p?.current_year} />
-                        <InfoPill label="CGPA"            value={p?.cgpa} />
-                        <InfoPill label="Percentage"      value={p?.percentage != null ? `${p.percentage}%` : undefined} />
-                        <InfoPill label="Student ID"      value={p?.student_id} />
+                    {detailTab === 'academic' && (
+                      <div>
+                        <SectionHead title="Academic Details" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="College"         value={intern.college} />
+                          <InfoPill label="University"      value={intern.university ?? p?.university} />
+                          <InfoPill label="College Email"    value={p?.college_email} />
+                          <InfoPill label="College City"     value={p?.college_city} />
+                          <InfoPill label="College State"    value={p?.college_state} />
+                          <InfoPill label="Degree"          value={intern.degree} />
+                          <InfoPill label="Branch"          value={intern.branch} />
+                          <InfoPill label="Specialization"  value={intern.specialization ?? p?.specialization} />
+                          <InfoPill label="Graduation Year" value={intern.graduation_year ?? p?.graduation_year} />
+                          <InfoPill label="Current Year"    value={p?.current_year} />
+                          <InfoPill label="CGPA"            value={p?.cgpa} />
+                          <InfoPill label="Percentage"      value={p?.percentage != null ? `${p.percentage}%` : undefined} />
+                          <InfoPill label="Student ID"      value={p?.student_id} />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Social links — only when filled */}
-                    {(p?.linkedin_url || p?.github_url || p?.portfolio_url) && (
+                    {detailTab === 'internship' && (
+                      <div>
+                        <SectionHead title="Internship Details" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="Department"        value={deptName} />
+                          <InfoPill label="Status"            value={p?.status ?? intern.status} />
+                          <InfoPill label="Start Date"        value={fmt(p?.start_date ?? intern.start_date)} />
+                          <InfoPill label="End Date"          value={p?.end_date ? fmt(p.end_date) : 'Open-ended'} />
+                          <InfoPill label="Duration (Months)"  value={p?.duration_months ?? intern.duration_months} />
+                          <InfoPill label="Work Mode"         value={p?.work_mode ?? intern.work_mode} />
+                          <InfoPill label="Stipend"           value={fmtMoney(p?.stipend ?? intern.stipend)} />
+                          <InfoPill label="Offer Letter Date" value={fmt(p?.offer_letter_date ?? intern.offer_letter_date)} />
+                          <InfoPill label="Joining Letter Date" value={fmt(p?.joining_letter_date ?? intern.joining_letter_date)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {detailTab === 'skills' && (
+                      <div>
+                        <SectionHead title="Skills & Tools" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="Skills"          value={joinValues(p?.skills ?? intern.skills)} />
+                          <InfoPill label="Languages Known" value={joinValues(p?.languages_known ?? intern.languages_known)} />
+                          <InfoPill label="Tools"           value={joinValues(p?.tools ?? intern.tools)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {detailTab === 'links' && (
                       <div>
                         <SectionHead title="Social & Links" />
-                        <div className="flex flex-wrap gap-3">
-                          {[
-                            { label: 'LinkedIn',  url: p?.linkedin_url,  d: 'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z M4 6a2 2 0 100-4 2 2 0 000 4z' },
-                            { label: 'GitHub',    url: p?.github_url,    d: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22' },
-                            { label: 'Portfolio', url: p?.portfolio_url, d: 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14' },
-                          ].filter(l => l.url).map(link => (
-                            <a
-                              key={link.label}
-                              href={!/^https?:\/\//i.test(link.url!) ? `https://${link.url}` : link.url!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium
-                                bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300
-                                hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-700 dark:hover:text-green-400
-                                border border-slate-200 dark:border-slate-700 transition-colors"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d={link.d} />
-                              </svg>
-                              {link.label}
-                            </a>
-                          ))}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="LinkedIn" value={<UrlValue value={p?.linkedin_url} />} />
+                          <InfoPill label="GitHub" value={<UrlValue value={p?.github_url} />} />
+                          <InfoPill label="Portfolio" value={<UrlValue value={p?.portfolio_url} />} />
+                        </div>
+                      </div>
+                    )}
+
+                    {detailTab === 'reference' && (
+                      <div>
+                        <SectionHead title="Reference" />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
+                          <InfoPill label="Reference Name" value={p?.reference_name} />
+                          <InfoPill label="Reference Contact" value={p?.reference_contact} />
+                        </div>
+                      </div>
+                    )}
+
+                    {detailTab === 'notes' && (
+                      <div>
+                        <SectionHead title="Notes" />
+                        <div className="rounded-xl bg-slate-50 dark:bg-slate-800/30 p-4 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-6">
+                          {p?.notes ?? '—'}
                         </div>
                       </div>
                     )}

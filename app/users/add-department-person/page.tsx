@@ -232,7 +232,7 @@ export default function AddDepartmentPersonPage() {
       >
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Full Name *
+            Full Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -245,7 +245,7 @@ export default function AddDepartmentPersonPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Email *
+            Email <span className="text-red-500">*</span>
           </label>
           <input
             type="email"
@@ -258,7 +258,7 @@ export default function AddDepartmentPersonPage() {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-            Department *
+            Department <span className="text-red-500">*</span>
           </label>
           <select
             value={form.department_id}

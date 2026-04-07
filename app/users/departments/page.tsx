@@ -30,8 +30,8 @@ interface Department {
 type ModalMode = 'add' | 'edit';
 
 const emptyForm = {
-  name: '', code: '', description: '', head_name: '',
-  head_email: '', location: '', max_interns: 20, is_active: true,
+  name: '', code: '', description: '',
+  max_interns: 20, is_active: true,
 };
 
 interface ToastState { message: string; type: ToastType; }
@@ -99,9 +99,6 @@ export default function DepartmentsPage() {
       name: dept.name,
       code: dept.code,
       description: dept.description ?? '',
-      head_name: dept.head_name ?? '',
-      head_email: dept.head_email ?? '',
-      location: dept.location ?? '',
       max_interns: dept.max_interns ?? 20,
       is_active: dept.is_active !== false,
     });
@@ -225,8 +222,6 @@ export default function DepartmentsPage() {
               <tr className="border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <th className="text-left px-5 py-3.5">Name</th>
                 <th className="text-left px-4 py-3.5">Code</th>
-                <th className="text-left px-4 py-3.5 hidden md:table-cell">Head</th>
-                <th className="text-left px-4 py-3.5 hidden lg:table-cell">Location</th>
                 <th className="text-center px-4 py-3.5 hidden sm:table-cell">Members</th>
                 <th className="text-center px-4 py-3.5">Status</th>
                 <th className="text-right px-5 py-3.5">Actions</th>
@@ -237,17 +232,10 @@ export default function DepartmentsPage() {
                 <tr key={dept.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-5 py-4">
                     <p className="font-semibold text-slate-800 dark:text-white">{dept.name}</p>
-                    {dept.description && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{dept.description}</p>}
+                    {dept.description && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-50">{dept.description}</p>}
                   </td>
                   <td className="px-4 py-4">
                     <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-md font-mono text-xs">{dept.code}</span>
-                  </td>
-                  <td className="px-4 py-4 hidden md:table-cell">
-                    <p className="text-slate-700 dark:text-slate-300">{dept.head_name || <span className="text-slate-400">—</span>}</p>
-                    {dept.head_email && <p className="text-xs text-slate-400">{dept.head_email}</p>}
-                  </td>
-                  <td className="px-4 py-4 hidden lg:table-cell text-slate-500 dark:text-slate-400">
-                    {dept.location || '—'}
                   </td>
                   <td className="px-4 py-4 text-center hidden sm:table-cell">
                     <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
@@ -313,11 +301,11 @@ export default function DepartmentsPage() {
             <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Name *</label>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Name <span className="text-red-500">*</span></label>
                   <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Artificial Intelligence" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Code *</label>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Code <span className="text-red-500">*</span></label>
                   <input value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="e.g. AI" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white font-mono" />
                 </div>
               </div>
@@ -325,25 +313,9 @@ export default function DepartmentsPage() {
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Description</label>
                 <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Optional description" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Head Name</label>
-                  <input value={form.head_name} onChange={e => setForm(p => ({ ...p, head_name: e.target.value }))} placeholder="e.g. John Doe" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Head Email</label>
-                  <input type="email" value={form.head_email} onChange={e => setForm(p => ({ ...p, head_email: e.target.value }))} placeholder="head@company.com" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Location</label>
-                  <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="e.g. Building A" className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Max Interns</label>
-                  <input type="number" min={1} value={form.max_interns} onChange={e => setForm(p => ({ ...p, max_interns: Number(e.target.value) }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Max Interns</label>
+                <input type="number" min={1} value={form.max_interns} onChange={e => setForm(p => ({ ...p, max_interns: Number(e.target.value) }))} className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 dark:bg-slate-800 dark:text-white" />
               </div>
               <div className="flex items-center gap-3">
                 <button
