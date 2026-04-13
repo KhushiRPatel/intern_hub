@@ -1,8 +1,11 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';           // ← replaces useNavigation
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { openAddInternModal, closeAddInternModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
+import { addNotification } from '@/lib/slices/notificationSlice';
 import { demoStore } from '@/lib/demoStore';
 import { INTERN_STATUSES, InternData } from '@/lib/constants';
 import {
@@ -18,30 +21,31 @@ import {
 } from '@/lib/internForm';
 import { FilterBar } from './FilterBar';
 import { DeleteModal } from './DeleteModal';
+import { Pagination } from '@/app/components/ui/Pagination';
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const ITEMS_PER_PAGE = 10;
 
 export function InternsView() {
   const { user, token } = useAuth();
-  const router = useRouter();                          // ← replaces useNavigation
-
-  const [search, setSearch]   = useState('');
-  const [dept, setDept]       = useState('');
-  const [college, setCollege] = useState('');
-  const [status, setStatus]   = useState('');
-
-  const [showForm, setShowForm]       = useState(false);
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { showAddInternModal, internFilters } = useUI();
+  const { search, department: dept, college, status } = internFilters;
   const [editTarget, setEditTarget]   = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const [formBusy, setFormBusy]     = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+    dispatch(addNotification({
+      type,
+      message: msg,
+      duration: 3500,
+    }));
+  }, [dispatch]);
 
   const [demoRefresh, setDemoRefresh] = useState(0);
   const demoInterns = useMemo(() => {
@@ -69,9 +73,23 @@ export function InternsView() {
     return where;
   };
 
+  const internsWhere = useMemo(
+    () => buildWhere(),
+    [search, dept, college, status, user?.role, user?.id, user?.department_id],
+  );
+
   const { data: internGqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(
     GET_INTERNS,
-    { variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] }, skip: IS_DEMO },
+    {
+      variables: {
+        where: internsWhere,
+        order_by: [{ created_at: 'desc' }],
+        limit: ITEMS_PER_PAGE,
+        offset: (currentPage - 1) * ITEMS_PER_PAGE,
+      },
+      skip: IS_DEMO,
+      fetchPolicy: 'network-only',
+    },
   );
   const { data: deptData }        = useQuery(GET_DEPARTMENTS,    { skip: IS_DEMO });
   const { data: collegeData }     = useQuery(GET_COLLEGES,       { skip: IS_DEMO });
@@ -82,15 +100,30 @@ export function InternsView() {
   const cols = collegeData   as any;
   const dep  = deptData      as any;
 
-  const interns  = IS_DEMO ? demoInterns  : (gql?.interns ?? []) as InternData[];
+  const interns  = IS_DEMO
+    ? demoInterns.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : (gql?.interns ?? []) as InternData[];
   const colleges = IS_DEMO ? demoColleges : (cols?.interns?.map((i: { college: string }) => i.college) ?? []) as string[];
   const depts    = IS_DEMO ? demoStore.getDepartments() : (dep?.departments ?? []);
   const loading  = IS_DEMO ? false : gqlLoading;
   const errorMsg = IS_DEMO ? undefined : gqlError?.message;
+  const totalItems = IS_DEMO ? demoInterns.length : (gql?.interns_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, dept, college, status]);
+
+  useEffect(() => {
+    if (loading || totalItems === 0) return;
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, loading, totalItems, totalPages]);
+
+  const paginatedInterns = useMemo(() => interns, [interns]);
 
   const handleEdit = (intern: InternData) => {
     setEditTarget(intern);
-    setShowForm(true);
+    dispatch(openAddInternModal());
   };
 
   const handleFormSubmit = async (values: InternFormValues) => {
@@ -149,7 +182,7 @@ export function InternsView() {
           showToast(`${values.name} added successfully`);
         }
       }
-      setShowForm(false);
+      dispatch(closeAddInternModal());
       setEditTarget(null);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Operation failed', 'error');
@@ -189,7 +222,7 @@ export function InternsView() {
     }
   };
 
-  const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
+  const clearFilters = () => { dispatch(clearInternFilters()); };
 
   const isAdmin  = user?.role === 'admin';
   const showDept = user?.role !== 'intern';
@@ -200,7 +233,7 @@ export function InternsView() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Interns</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            {interns.length} intern{interns.length !== 1 ? 's' : ''} found
+            {totalItems} intern{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         {isAdmin && (
@@ -217,10 +250,10 @@ export function InternsView() {
       </div>
 
       <FilterBar
-        search={search} setSearch={setSearch}
-        dept={dept}     setDept={setDept}
-        college={college} setCollege={setCollege}
-        status={status} setStatus={setStatus}
+        search={search} setSearch={(v) => dispatch(setInternFilters({ search: v }))}
+        dept={dept}     setDept={(v) => dispatch(setInternFilters({ department: v }))}
+        college={college} setCollege={(v) => dispatch(setInternFilters({ college: v }))}
+        status={status} setStatus={(v) => dispatch(setInternFilters({ status: v }))}
         onClear={clearFilters}
         colleges={colleges}
         showDeptFilter={showDept}
@@ -228,18 +261,25 @@ export function InternsView() {
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <InternTable
-          interns={interns}
+          interns={paginatedInterns}
+          rowOffset={(currentPage - 1) * ITEMS_PER_PAGE}
           loading={loading}
           error={errorMsg}
           userRole={user?.role ?? 'intern'}
           onEdit={handleEdit}
           onDelete={(id, name) => setDeleteTarget({ id, name })}
         />
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalItems}
+          pageSize={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       <InternFormModal
-        isOpen={showForm}
-        onClose={() => { setShowForm(false); setEditTarget(null); }}
+        isOpen={showAddInternModal}
+        onClose={() => { dispatch(closeAddInternModal()); setEditTarget(null); }}
         onSubmit={handleFormSubmit}
         initialData={editTarget}
         departments={depts}
@@ -253,18 +293,6 @@ export function InternsView() {
           onCancel={() => setDeleteTarget(null)}
           submitting={deleteBusy}
         />
-      )}
-
-      {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium animate-fade-in ${
-          toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-        }`}>
-          {toast.type === 'success'
-            ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-            : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          }
-          {toast.msg}
-        </div>
       )}
     </div>
   );

@@ -50,7 +50,7 @@ export default function RegisterPage() {
           backgroundImage: `radial-gradient(circle at 25px 25px, #22c55e 2px, transparent 0)`,
           backgroundSize: '80px 80px',
         }} />
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-primary-950/30 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-linear-to-t from-primary-950/30 to-transparent" />
 
         <div className="relative z-10 max-w-xs text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-6 shadow-2xl shadow-primary-900/50">
@@ -99,7 +99,7 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Full Name *"
+              label="Full Name"
               type="text"
               value={form.name}
               onChange={set('name')}
@@ -107,7 +107,7 @@ export default function RegisterPage() {
               required
             />
             <Input
-              label="Email Address *"
+              label="Email Address"
               type="email"
               value={form.email}
               onChange={set('email')}
@@ -115,7 +115,7 @@ export default function RegisterPage() {
               required
             />
             <Input
-              label="College / University *"
+              label="College / University"
               type="text"
               value={form.college}
               onChange={set('college')}

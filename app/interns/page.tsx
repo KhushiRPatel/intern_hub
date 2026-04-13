@@ -1,26 +1,30 @@
 'use client';
-import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAppDispatch, useUI } from '@/lib/hooks';
+import { openImportModal, closeImportModal, openExportModal, closeExportModal, setInternFilters, clearInternFilters } from '@/lib/slices/uiSlice';
+import { addNotificationAsync } from '@/lib/slices/notificationSlice';
 import { DEPARTMENTS, INTERN_STATUSES, InternData, DEMO_DEPARTMENTS } from '@/lib/constants';
 import { demoStore } from '@/lib/demoStore';
 import { GET_INTERNS, GET_DEPARTMENTS, GET_COLLEGES } from '@/graphql/queries';
 import { UPDATE_INTERN, DELETE_INTERN } from '@/graphql/mutations';
 import InternTable from '@/app/components/InternList/page';
-import InternFormModal, { InternFormValues } from '@/app/components/AddIntern/page';
 import {
-  internFormValuesToCreateApiBody,
   internFormValuesToDemoPayload,
-  internFormValuesToHasuraUpdateSet,
-  resolveInternFormDepartmentId,
 } from '@/lib/internForm';
 import { Button } from '@/app/components/ui/Button';
 import { Input, Select } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
+import { Pagination } from '@/app/components/ui/Pagination';
 import ImportModal from '@/app/components/ImportModal';
 import ExportInternsModal from '@/app/components/ExportInternsModal';
+import InternDetailModal from '@/app/components/InternDetailModal';
 
-const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== 'false';
+const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+const ITEMS_PER_PAGE = 10;
 
 /* ── Filter bar ─────────────────────────────────────────────────────────────── */
 function FilterBar({
@@ -116,41 +120,29 @@ function DeleteModal({ name, onConfirm, onCancel, submitting }: {
   );
 }
 
-/* ── Toast ──────────────────────────────────────────────────────────────────── */
-function Toast({ msg, type }: { msg: string; type: 'success' | 'error' }) {
-  return (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-xl text-sm font-medium animate-slide-in-right ${type === 'success' ? 'bg-primary-600 text-white' : 'bg-red-600 text-white'}`}>
-      {type === 'success'
-        ? <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-        : <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-      }
-      {msg}
-    </div>
-  );
-}
-
 /* ── Main page ──────────────────────────────────────────────────────────────── */
 export default function InternsPage() {
   const { user, token, isLoading } = useAuth();
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const { showImportModal, showExportModal, internFilters } = useUI();
+  const { search, department: dept, college, status } = internFilters;
 
-  const [search, setSearch] = useState('');
-  const [dept, setDept] = useState('');
-  const [college, setCollege] = useState('');
-  const [status, setStatus] = useState('');
+  const isAdmin = user?.role === 'admin';
+  const isDeptPerson = user?.role === 'department_person';
 
-  const [showForm, setShowForm] = useState(false);
-  const [showImport, setShowImport] = useState(false);
-  const [showExport, setShowExport] = useState(false);
-  const [editTarget, setEditTarget] = useState<InternData | null>(null);
+  const [viewTarget, setViewTarget] = useState<InternData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [formBusy, setFormBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+    dispatch(addNotificationAsync({
+      type,
+      message: msg,
+      duration: 4000,
+    }));
+  }, [dispatch]);
 
   /* ── Demo data ── */
   const [demoRefresh, setDemoRefresh] = useState(0);
@@ -185,9 +177,20 @@ export default function InternsPage() {
         : { _and: conditions };
   };
 
+  const internsWhere = useMemo(
+    () => buildWhere(),
+    [search, dept, college, status, user?.role, user?.id, user?.department_id],
+  );
+
   const { data: gqlData, loading: gqlLoading, error: gqlError, refetch } = useQuery(GET_INTERNS, {
-    variables: { where: buildWhere(), order_by: [{ created_at: 'desc' }] },
+    variables: {
+      where: internsWhere,
+      order_by: [{ created_at: 'desc' }],
+      limit: ITEMS_PER_PAGE,
+      offset: (currentPage - 1) * ITEMS_PER_PAGE,
+    },
     skip: IS_DEMO || isLoading,
+    fetchPolicy: 'network-only',
   });
   const { data: deptData } = useQuery(GET_DEPARTMENTS, { skip: IS_DEMO });
   const { data: collegeData } = useQuery(GET_COLLEGES, { skip: IS_DEMO });
@@ -199,66 +202,31 @@ export default function InternsPage() {
   const cols = collegeData as any; // eslint-disable-line
   const dep = deptData as any; // eslint-disable-line
 
-  const interns = IS_DEMO ? demoInterns : (gql?.interns ?? []) as InternData[];
+  const interns = IS_DEMO
+    ? demoInterns.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    : (gql?.interns ?? []) as InternData[];
   const colleges = IS_DEMO ? demoColleges : (cols?.interns?.map((i: { college: string }) => i.college) ?? []) as string[];
   const depts = IS_DEMO ? demoDepts : (dep?.departments ?? []);
   const loading = IS_DEMO ? false : gqlLoading;
   const errorMsg = IS_DEMO ? undefined : gqlError?.message;
+  const totalItems = IS_DEMO ? demoInterns.length : (gql?.interns_aggregate?.aggregate?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, dept, college, status]);
+
+  useEffect(() => {
+    if (loading || totalItems === 0) return;
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, loading, totalItems, totalPages]);
+
+  const paginatedInterns = useMemo(() => interns, [interns]);
 
   /* ── Handlers ── */
-  const handleEdit = (intern: InternData) => { setEditTarget(intern); setShowForm(true); };
-
-  const handleFormSubmit = async (values: InternFormValues) => {
-    setFormBusy(true);
-    try {
-      const department_id = resolveInternFormDepartmentId(values, {
-        isDeptPerson: user?.role === 'department_person',
-        userDepartmentId: user?.department_id,
-      });
-      const demoPayload = internFormValuesToDemoPayload(values, department_id);
-
-      if (IS_DEMO) {
-        if (editTarget) {
-          demoStore.update(editTarget.id, demoPayload);
-          showToast(`${values.name} updated`);
-        } else {
-          demoStore.create(demoPayload);
-          showToast(`${values.name} added — demo mode`);
-        }
-        setDemoRefresh(n => n + 1);
-      } else {
-        if (editTarget) {
-          await updateMutation({
-            variables: {
-              id: editTarget.id,
-              set: internFormValuesToHasuraUpdateSet(values, department_id),
-            },
-          });
-          showToast(`${values.name} updated`);
-        } else {
-          const res = await fetch('/api/interns/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify(internFormValuesToCreateApiBody(values, department_id)),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Failed to add intern');
-          const emailMsg = data.emailSent ? ' · Setup email sent' : ' · Email not configured';
-          showToast(`${values.name} added${emailMsg}`);
-          refetch();
-        }
-      }
-      setShowForm(false);
-      setEditTarget(null);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Operation failed', 'error');
-    } finally {
-      setFormBusy(false);
-    }
-  };
+  const handleView = (intern: InternData) => setViewTarget(intern);
+  const handleEdit = (intern: InternData) => router.push(`/interns/add?edit=${intern.id}`);
+  const handleAddIntern = () => router.push('/interns/add');
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -275,10 +243,20 @@ export default function InternsPage() {
     }
   };
 
-  const clearFilters = () => { setSearch(''); setDept(''); setCollege(''); setStatus(''); };
+  const clearFilters = () => { dispatch(clearInternFilters()); };
 
-  const isAdmin = user?.role === 'admin';
   const showDept = user?.role === 'admin';
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (!isAdmin && !isDeptPerson) {
+      router.replace('/dashboard');
+    }
+  }, [isLoading, user, router, isAdmin, isDeptPerson]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-5 animate-fade-in">
@@ -288,13 +266,13 @@ export default function InternsPage() {
         <div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Interns</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {interns.length} intern{interns.length !== 1 ? 's' : ''} found
+            {totalItems} intern{totalItems !== 1 ? 's' : ''} found
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            onClick={() => setShowExport(true)}
+            onClick={() => dispatch(openExportModal())}
             leftIcon={
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path
@@ -311,7 +289,7 @@ export default function InternsPage() {
             <>
               <Button
                 variant="outline"
-                onClick={() => setShowImport(true)}
+                onClick={() => dispatch(openImportModal())}
                 leftIcon={
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path
@@ -324,27 +302,29 @@ export default function InternsPage() {
               >
                 Import Excel
               </Button>
-              <Button
-                onClick={() => { setEditTarget(null); setShowForm(true); }}
-                leftIcon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                }
-              >
-                Add Intern
-              </Button>
             </>
+          )}
+          {(isAdmin || isDeptPerson) && (
+            <Button
+              onClick={handleAddIntern}
+              leftIcon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Add Intern
+            </Button>
           )}
         </div>
       </div>
 
       {/* ── Filters ── */}
       <FilterBar
-        search={search} setSearch={setSearch}
-        dept={dept} setDept={setDept}
-        college={college} setCollege={setCollege}
-        status={status} setStatus={setStatus}
+        search={search} setSearch={(v) => dispatch(setInternFilters({ search: v }))}
+        dept={dept} setDept={(v) => dispatch(setInternFilters({ department: v }))}
+        college={college} setCollege={(v) => dispatch(setInternFilters({ college: v }))}
+        status={status} setStatus={(v) => dispatch(setInternFilters({ status: v }))}
         onClear={clearFilters} colleges={colleges} showDeptFilter={showDept}
         depts={depts}
       />
@@ -352,24 +332,25 @@ export default function InternsPage() {
       {/* ── Table ── */}
       <div className="bg-white dark:bg-[#1e1c2f] rounded-2xl border border-slate-100 dark:border-[#2d2a45] shadow-sm overflow-hidden">
         <InternTable
-          interns={interns} loading={loading} error={errorMsg}
+          interns={paginatedInterns}
+          rowOffset={(currentPage - 1) * ITEMS_PER_PAGE}
+          loading={loading}
+          error={errorMsg}
           departments={depts}
           userRole={user?.role ?? 'intern'}
+          onView={handleView}
           onEdit={handleEdit}
           onDelete={(id, name) => setDeleteTarget({ id, name })}
+        />
+        <Pagination
+          currentPage={currentPage}
+          totalItems={totalItems}
+          pageSize={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
         />
       </div>
 
       {/* ── Modals ── */}
-      <InternFormModal
-        isOpen={showForm}
-        onClose={() => { setShowForm(false); setEditTarget(null); }}
-        onSubmit={handleFormSubmit}
-        initialData={editTarget}
-        departments={depts}
-        submitting={formBusy}
-      />
-
       {deleteTarget && (
         <DeleteModal
           name={deleteTarget.name}
@@ -380,11 +361,11 @@ export default function InternsPage() {
       )}
 
       <ImportModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
+        open={showImportModal}
+        onClose={() => dispatch(closeImportModal())}
         departments={depts}
         onImportDone={() => {
-          setShowImport(false);
+          dispatch(closeImportModal());
           if (IS_DEMO) setDemoRefresh(n => n + 1);
           else refetch();
           showToast('Interns imported successfully');
@@ -392,13 +373,22 @@ export default function InternsPage() {
       />
 
       <ExportInternsModal
-        open={showExport}
-        onClose={() => setShowExport(false)}
+        open={showExportModal}
+        onClose={() => dispatch(closeExportModal())}
         interns={interns}
         departments={depts}
       />
 
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      {/* ── Intern detail modal ── */}
+      <InternDetailModal
+        intern={viewTarget}
+        departments={depts}
+        onClose={() => setViewTarget(null)}
+        onEdit={handleEdit}
+        userRole={user?.role}
+      />
+
+
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import ApolloClientProvider from './providers/ApolloProvider';
+import ReduxProvider from './providers/ReduxProvider';
 import { AuthProvider } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';   // ← your branch
 import { ThemeProvider } from './context/ThemeContext'; // ← Harshil's branch
@@ -20,16 +21,36 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const isDark = theme === 'dark' || (!theme && prefersDark);
+                if (isDark) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} antialiased`}>
-        <ThemeProvider>
-          <ApolloClientProvider>
-            <AuthProvider>
-              <TaskProvider>
-                {children}
-              </TaskProvider>
-            </AuthProvider>
-          </ApolloClientProvider>
-        </ThemeProvider> 
+        <ReduxProvider>
+          <ThemeProvider>
+            <ApolloClientProvider>
+              <AuthProvider>
+                <TaskProvider>
+                  {children}
+                </TaskProvider>
+              </AuthProvider>
+            </ApolloClientProvider>
+          </ThemeProvider>
+        </ReduxProvider>
       </body>
     </html>
   );

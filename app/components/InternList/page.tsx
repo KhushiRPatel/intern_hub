@@ -10,6 +10,8 @@ interface Props {
   loading?: boolean;
   error?: string;
   userRole?: UserRole;
+  rowOffset?: number;
+  onView?: (intern: InternData) => void;
   onEdit?: (intern: InternData) => void;
   onDelete?: (id: string, name: string) => void;
 }
@@ -26,6 +28,8 @@ export default function InternTable({
   loading = false,
   error,
   userRole = 'intern',
+  rowOffset = 0,
+  onView,
   onEdit = () => {},
   onDelete = () => {},
 }: Props) {
@@ -66,15 +70,17 @@ export default function InternTable({
     );
   }
 
+  const canView   = userRole === 'admin' || userRole === 'department_person';
   const canEdit   = userRole === 'admin' || userRole === 'department_person';
   const canDelete = userRole === 'admin';
+  const showDepartment = userRole !== 'department_person';
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm text-left">
         <thead>
           <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-            {['#', 'Intern', 'College', 'Department', 'Duration', 'Status', 'Actions'].map(h => (
+            {['#', 'Intern', 'College', ...(showDepartment ? ['Department'] : []), 'Duration', 'Status', 'Actions'].map(h => (
               <th
                 key={h}
                 className="px-4 py-3 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap"
@@ -92,7 +98,7 @@ export default function InternTable({
             >
               {/* # */}
               <td className="px-4 py-3.5 text-slate-400 dark:text-slate-600 text-xs font-medium w-10">
-                {idx + 1}
+                {rowOffset + idx + 1}
               </td>
 
               {/* Intern info */}
@@ -100,9 +106,20 @@ export default function InternTable({
                 <div className="flex items-center gap-3">
                   <Avatar name={intern.name} size="sm" />
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-800 dark:text-slate-200 truncate leading-none">
-                      {intern.name}
-                    </p>
+                    {canView && onView ? (
+                      <button
+                        type="button"
+                        onClick={() => onView(intern)}
+                        className="font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 hover:underline truncate leading-none text-left transition-colors"
+                        title="View full profile"
+                      >
+                        {intern.name}
+                      </button>
+                    ) : (
+                      <p className="font-semibold text-slate-800 dark:text-slate-200 truncate leading-none">
+                        {intern.name}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 truncate">{intern.email}</p>
                     {intern.phone && (
                       <p className="text-xs text-slate-400 dark:text-slate-600 mt-0.5">{intern.phone}</p>
@@ -117,9 +134,11 @@ export default function InternTable({
               </td>
 
               {/* Department */}
-              <td className="px-4 py-3.5">
-                <DeptBadge name={departments.find(d => d.id === intern.department_id)?.name ?? '—'} />
-              </td>
+              {showDepartment && (
+                <td className="px-4 py-3.5">
+                  <DeptBadge name={departments.find(d => d.id === intern.department_id)?.name ?? '—'} />
+                </td>
+              )}
 
               {/* Duration */}
               <td className="px-4 py-3.5 whitespace-nowrap">

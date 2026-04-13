@@ -5,10 +5,16 @@ import { useQuery } from "@apollo/client/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { DEMO_DEPARTMENTS, DepartmentData } from "@/lib/constants";
 import { GET_DEPARTMENTS } from "@/graphql/queries";
+import { Toast, ToastType } from "@/app/components/ui/Toast";
 
 const IS_DEMO = process.env.NEXT_PUBLIC_DEMO_MODE !== "false";
 
-type FormValues = { name: string; email: string; department_id: string };
+type FormValues = { name: string; email: string; department_id: string; mobile_number: string };
+
+interface ToastState {
+  message: string;
+  type: ToastType;
+}
 
 async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
   const text = await res.text();
@@ -20,7 +26,7 @@ async function resJsonSafe<T = unknown>(res: Response): Promise<T> {
 }
 
 export default function AddDepartmentPersonPage() {
-  const { user, token, isLoading } = useAuth(); // ← token added
+  const { user, token, isLoading } = useAuth();
   const router = useRouter();
 
   // ── Auth guard ─────────────────────────────────────────────────────────────
@@ -54,49 +60,66 @@ export default function AddDepartmentPersonPage() {
     name: "",
     email: "",
     department_id: "",
+    mobile_number: "",
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState<{
-    email: string;
-    tempPassword?: string;
-    resetLink?: string;
-  } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  const showToast = (message: string, type: ToastType) =>
+    setToast({ message, type });
 
   const set =
     (field: keyof FormValues) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm((p) => ({ ...p, [field]: e.target.value }));
 
+  // ── Mobile number handler with validation ──────────────────────────────────
+  const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow digits, max 10
+    let value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    setForm((p) => ({ ...p, mobile_number: value }));
+
+    // Real-time validation
+    if (value && value.length !== 10) {
+      setFormErrors((p) => ({
+        ...p,
+        mobile_number: "Mobile number must be exactly 10 digits",
+      }));
+    } else {
+      setFormErrors((p) => {
+        const updated = { ...p };
+        delete updated.mobile_number;
+        return updated;
+      });
+    }
+  };
+
   const validate = () => {
     if (!form.name.trim()) return "Name is required";
     if (!form.email.trim()) return "Email is required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Invalid email";
     if (!form.department_id) return "Department is required";
+    if (form.mobile_number.trim() && !/^\d{10}$/.test(form.mobile_number.trim())) return "Mobile number must be exactly 10 digits";
     return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     const vErr = validate();
     if (vErr) {
-      setError(vErr);
+      showToast(vErr, "error");
       return;
     }
 
     setSubmitting(true);
     try {
       if (IS_DEMO) {
-        // Demo mode: no persistence, just show placeholder credentials
-        setSuccess({
-          email: form.email.trim().toLowerCase(),
-          tempPassword: "DEMO_TEMP_PASSWORD",
-        });
+        setForm({ name: "", email: "", department_id: "", mobile_number: "" });
+        showToast("Department person created successfully!", "success");
         return;
       }
 
-      // ✅ FIX: Authorization header so the API auth guard passes
       const res = await fetch("/api/users/create-department-person", {
         method: "POST",
         headers: {
@@ -107,6 +130,7 @@ export default function AddDepartmentPersonPage() {
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
           department_id: form.department_id,
+          mobile_number: form.mobile_number.trim() || null,
         }),
       });
 
@@ -121,17 +145,17 @@ export default function AddDepartmentPersonPage() {
       if (!res.ok)
         throw new Error(data.message || "Failed to create department person");
 
-      setSuccess({
-        email: form.email.trim().toLowerCase(),
-        tempPassword: data.credentials?.tempPassword,
-        resetLink: data.resetLink,
-      });
-      setForm({ name: "", email: "", department_id: "" });
+      setForm({ name: "", email: "", department_id: "", mobile_number: "" });
+      showToast(
+        data.emailSent
+          ? "Department person created! Password setup email sent."
+          : "Department person created! Password setup link sent to console.",
+        "success",
+      );
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to create department person",
+      showToast(
+        err instanceof Error ? err.message : "Failed to create department person",
+        "error",
       );
     } finally {
       setSubmitting(false);
@@ -149,6 +173,15 @@ export default function AddDepartmentPersonPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {/* ── Toast ── */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       {/* ── Header ── */}
       <div className="mb-6">
         <button
@@ -181,11 +214,6 @@ export default function AddDepartmentPersonPage() {
       </div>
 
       {/* ── Alerts ── */}
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-          {error}
-        </div>
-      )}
       {deptsError && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl text-sm">
           {deptsError}
@@ -197,88 +225,76 @@ export default function AddDepartmentPersonPage() {
         </div>
       )}
 
-      {/* ── Success card ── */}
-      {success && (
-        <div className="mb-6 bg-green-50 border border-green-200 text-green-900 px-4 py-4 rounded-xl text-sm space-y-1">
-          <p className="font-semibold text-green-800">
-            ✓ Department person created
-          </p>
-          <p>
-            Email: <span className="font-mono">{success.email}</span>
-          </p>
-          {success.tempPassword && (
-            <p>
-              Temp password:{" "}
-              <span className="font-mono">{success.tempPassword}</span>
-            </p>
-          )}
-          {success.resetLink && (
-            <div className="mt-2">
-              <p className="text-xs text-green-700 mb-1">
-                Password setup link (share if email not configured):
-              </p>
-              <p className="font-mono text-xs break-all bg-green-100 px-2 py-1 rounded">
-                {success.resetLink}
-              </p>
-            </div>
-          )}
-          <button
-            onClick={() => setSuccess(null)}
-            className="mt-2 text-xs text-green-700 underline hover:text-green-900"
-          >
-            Add another
-          </button>
-        </div>
-      )}
-
       {/* ── Form ── */}
-      {!success && (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm px-6 py-5 space-y-4"
-        >
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={set("name")}
-              placeholder="e.g. Sarah Sharma"
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
-            />
-          </div>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm px-6 py-5 space-y-4"
+      >
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Full Name <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.name}
+            onChange={set("name")}
+            placeholder="e.g. Sarah Sharma"
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Email <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            placeholder="sarah@example.com"
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Department <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={form.department_id}
+            onChange={set("department_id")}
+            className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+          >
+            <option value="">Select department</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Email *
+              Mobile Number
             </label>
             <input
-              type="email"
-              value={form.email}
-              onChange={set("email")}
-              placeholder="sarah@example.com"
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
+              type="tel"
+              value={form.mobile_number}
+              onChange={handleMobileChange}
+              placeholder="e.g. 9876543210"
+              maxLength={10}
+              className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 text-slate-800 dark:text-slate-200 dark:bg-slate-800 transition-colors ${
+                formErrors.mobile_number
+                  ? "border-red-400 dark:border-red-400 focus:ring-red-400"
+                  : "border-slate-300 dark:border-slate-600 focus:ring-blue-400"
+              }`}
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Department *
-            </label>
-            <select
-              value={form.department_id}
-              onChange={set("department_id")}
-              className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-slate-800 dark:text-slate-200 dark:bg-slate-800"
-            >
-              <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            {formErrors.mobile_number ? (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">{formErrors.mobile_number}</p>
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Optional. Must be exactly 10 digits.</p>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -305,7 +321,7 @@ export default function AddDepartmentPersonPage() {
             </button>
           </div>
         </form>
-      )}
+
     </div>
   );
 }

@@ -55,7 +55,7 @@ services:
 
 # ── Apply Hasura Permissions ──────────────────────────────────────────────
   hasura-permissions:
-    image: alpine/curl
+    image: node:18-alpine
     container_name: internhub_permissions
     depends_on:
       hasura:
@@ -63,7 +63,7 @@ services:
     working_dir: /app
     volumes:
       - ./:/app
-    command: sh apply-permissions.sh
+    command: sh -c "HASURA_URL=http://hasura:8080 node apply-permissions.mjs"
     restart: "no"
 
   # ── Apache Superset ───────────────────────────────────────────────────────

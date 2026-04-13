@@ -8,6 +8,10 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserData } from '@/lib/constants';
+import { useAppDispatch } from '@/lib/hooks';
+import { resetUIState } from '@/lib/slices/uiSlice';
+import { clearNotifications } from '@/lib/slices/notificationSlice';
+import { resetChatbotState } from '@/lib/slices/chatbotSlice';
 
 interface AuthContextType {
     user: UserData | null;
@@ -20,11 +24,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function setAuthCookie(token: string) {
+    document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 8}; samesite=lax`;
+}
+
+function clearAuthCookie() {
+    document.cookie = 'auth_token=; path=/; max-age=0; samesite=lax';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<UserData | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+    const dispatch = useAppDispatch();
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -32,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const storedToken = localStorage.getItem('auth_token');
             const storedUser = localStorage.getItem('auth_user');
             if (storedToken && storedUser) {
+                setAuthCookie(storedToken);
                 setToken(storedToken);
                 setUser(JSON.parse(storedUser));
             }
@@ -58,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { token: newToken, user: newUser } = await res.json();
         localStorage.setItem('auth_token', newToken);
         localStorage.setItem('auth_user', JSON.stringify(newUser));
+        setAuthCookie(newToken);
         setToken(newToken);
         setUser(newUser);
         router.push('/dashboard');
@@ -66,8 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = () => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
+        clearAuthCookie();
         setToken(null);
         setUser(null);
+        dispatch(resetUIState());
+        dispatch(clearNotifications());
+        dispatch(resetChatbotState());
         router.push('/login');
     };
 

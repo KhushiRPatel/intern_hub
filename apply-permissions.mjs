@@ -1,8 +1,52 @@
 // Run from project root: node apply-permissions.mjs
-const HASURA_URL   = 'http://localhost:8080';
-const ADMIN_SECRET = 'myadminsecret'; // ← your HASURA_ADMIN_SECRET value
+const HASURA_URL   = process.env.HASURA_URL || 'http://localhost:8081';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'myadminsecret';
+
+async function track(table) {
+  const res = await fetch(`${HASURA_URL}/v1/metadata`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':          'application/json',
+      'x-hasura-admin-secret': ADMIN_SECRET,
+    },
+    body: JSON.stringify({
+      type: 'pg_track_table',
+      args: {
+        source: 'default',
+        table: { schema: 'public', name: table },
+      },
+    }),
+  });
+  const json = await res.json();
+  if (json.error) {
+    if (json.error.includes('already tracked') || json.code === 'already-tracked') {
+      console.log(`  ✓ ${table} (already tracked)`);
+    } else {
+      console.error(`  ✗ ${table} — ${json.error}`);
+    }
+  } else {
+    console.log(`  ✓ ${table} tracked`);
+  }
+}
 
 async function apply(type, table, role, permission) {
+  const dropType = type.replace('create', 'drop');
+  await fetch(`${HASURA_URL}/v1/metadata`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':          'application/json',
+      'x-hasura-admin-secret': ADMIN_SECRET,
+    },
+    body: JSON.stringify({
+      type: dropType,
+      args: {
+        source: 'default',
+        table:  { schema: 'public', name: table },
+        role,
+      },
+    }),
+  });
+
   const res = await fetch(`${HASURA_URL}/v1/metadata`, {
     method: 'POST',
     headers: {
@@ -28,9 +72,19 @@ async function apply(type, table, role, permission) {
   }
 }
 
-console.log('Applying Hasura permissions...\n');
+// ── Track Tables ──────────────────────────────────────────────────────────────
+console.log('Tracking tables...\n');
+await track('departments');
+await track('users');
+await track('interns');
+await track('tasks');
+await track('task_interns');
+await track('task_comments');
+await track('task_activity_log');
 
 // ── SELECT permissions ────────────────────────────────────────────────────────
+console.log('\nApplying Hasura permissions...\n');
+
 const selects = [
   ['interns',      'admin',             {}],
   ['interns',      'department_person', { department_id: { _eq: 'X-Hasura-Department-Id' } }],
@@ -56,8 +110,6 @@ for (const [table, role, filter] of selects) {
 }
 
 // ── UPDATE permissions ────────────────────────────────────────────────────────
-// department_person can update interns in their department
-// intern can update only their own record (limited columns)
 const updates = [
   ['interns', 'admin', {}, '*'],
   ['interns', 'department_person',
@@ -67,8 +119,11 @@ const updates = [
   ],
   ['interns', 'intern',
     { user_id: { _eq: 'X-Hasura-User-Id' } },
-    ['phone', 'linkedin_url', 'github_url', 'portfolio_url',
-     'address_line1', 'address_line2', 'city', 'state', 'pincode']
+    ['phone', 'alternate_phone', 'date_of_birth', 'gender', 'blood_group',
+     'nationality', 'aadhar_number', 'pan_number', 'address_line1', 'address_line2',
+     'city', 'state', 'pincode', 'country', 'college', 'university', 'degree', 'branch',
+     'specialization', 'graduation_year', 'current_year', 'cgpa', 'percentage',
+     'student_id', 'linkedin_url', 'github_url', 'portfolio_url']
   ],
   ['users', 'admin',             {}, '*'],
   ['users', 'department_person', { id: { _eq: 'X-Hasura-User-Id' } }, ['name', 'phone', 'department_id']],
@@ -90,7 +145,6 @@ for (const [table, role, filter, columns] of updates) {
 }
 
 // ── DELETE permissions ────────────────────────────────────────────────────────
-// Only admin can delete interns and users
 const deletes = [
   ['interns', 'admin', {}],
   ['users',   'admin', {}],
