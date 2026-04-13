@@ -8,7 +8,7 @@ services:
     container_name: internhub_postgres
     restart: always
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: intern_management
       POSTGRES_USER: chatbot
@@ -38,7 +38,7 @@ services:
       HASURA_GRAPHQL_DATABASE_URL:          "postgres://chatbot:chatbot123@postgres:5432/intern_management"
       HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://chatbot:chatbot123@postgres:5432/intern_management"
       HASURA_GRAPHQL_ADMIN_SECRET:          "myadminsecret"
-      HASURA_GRAPHQL_JWT_SECRET:            '{"type":"HS256","key":"change-me-to-a-long-random-string-min-32-chars"}'
+      HASURA_GRAPHQL_JWT_SECRET:            '{"type":"HS256","key":"a9a5bacd60ccc5c1ee2f070c50004f724e8d25f0ad568e0740a9f9ea9beb881c"}'
       HASURA_GRAPHQL_ENABLE_CONSOLE:        "true"
       HASURA_GRAPHQL_DEV_MODE:              "true"
       HASURA_GRAPHQL_ENABLED_LOG_TYPES:     "startup, http-log, webhook-log, websocket-log, query-log"
@@ -65,5 +65,40 @@ services:
       - ./:/app
     command: sh -c "HASURA_URL=http://hasura:8080 node apply-permissions.mjs"
     restart: "no"
+
+  # ── Apache Superset ───────────────────────────────────────────────────────
+  superset:
+    build:
+      context: ./superset
+      dockerfile: Dockerfile
+    image: internhub_superset_custom
+    container_name: internhub_superset
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SUPERSET_SECRET_KEY: "supersetchangeme_longkey_1234567890abcd"
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py
+    command:
+      - bash
+      - -c
+      - |
+        superset db upgrade &&
+        superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin123 2>/dev/null || true &&
+        superset init &&
+        superset run -h 0.0.0.0 -p 8088 --with-threads
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8088/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 90s
+
 volumes:
   postgres_data:
+  superset_home:
